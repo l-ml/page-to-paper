@@ -6,169 +6,177 @@
 	objectVersion = 56;
 	objects = {
 /* Begin PBXBuildFile section */
-		000000000000000000000026 /* PageToPaperApp.swift in Sources */ = {
+		000000000000000000000027 /* PageToPaperApp.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000009 /* PageToPaperApp.swift */;
+			fileRef = 00000000000000000000000A /* PageToPaperApp.swift */;
 		};
-		000000000000000000000027 /* RootView.swift in Sources */ = {
+		000000000000000000000028 /* RootView.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 00000000000000000000000A /* RootView.swift */;
+			fileRef = 00000000000000000000000B /* RootView.swift */;
 		};
-		000000000000000000000028 /* OnboardingView.swift in Sources */ = {
+		000000000000000000000029 /* OnboardingView.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 00000000000000000000000B /* OnboardingView.swift */;
+			fileRef = 00000000000000000000000C /* OnboardingView.swift */;
 		};
-		000000000000000000000029 /* PairingView.swift in Sources */ = {
+		00000000000000000000002A /* PairingView.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 00000000000000000000000C /* PairingView.swift */;
+			fileRef = 00000000000000000000000D /* PairingView.swift */;
 		};
-		00000000000000000000002A /* SettingsView.swift in Sources */ = {
+		00000000000000000000002B /* SettingsView.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 00000000000000000000000D /* SettingsView.swift */;
+			fileRef = 00000000000000000000000E /* SettingsView.swift */;
 		};
-		00000000000000000000002B /* AppPreferences.swift in Sources */ = {
+		00000000000000000000002C /* AppPreferences.swift in Sources */ = {
 			isa = PBXBuildFile;
 			fileRef = 000000000000000000000001 /* AppPreferences.swift */;
 		};
-		00000000000000000000002C /* ArticleConverter.swift in Sources */ = {
+		00000000000000000000002D /* ArticleConverter.swift in Sources */ = {
 			isa = PBXBuildFile;
 			fileRef = 000000000000000000000002 /* ArticleConverter.swift */;
 		};
-		00000000000000000000002D /* ArticleDraft.swift in Sources */ = {
+		00000000000000000000002E /* ArticleDraft.swift in Sources */ = {
 			isa = PBXBuildFile;
 			fileRef = 000000000000000000000003 /* ArticleDraft.swift */;
 		};
-		00000000000000000000002E /* ExtensionMessageRouter.swift in Sources */ = {
+		00000000000000000000002F /* ExtensionMessageRouter.swift in Sources */ = {
 			isa = PBXBuildFile;
 			fileRef = 000000000000000000000004 /* ExtensionMessageRouter.swift */;
 		};
-		00000000000000000000002F /* RemarkableAuth.swift in Sources */ = {
+		000000000000000000000030 /* PairingCode.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000005 /* RemarkableAuth.swift */;
+			fileRef = 000000000000000000000005 /* PairingCode.swift */;
 		};
-		000000000000000000000030 /* RemarkableCloudClient.swift in Sources */ = {
+		000000000000000000000031 /* RemarkableAuth.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000006 /* RemarkableCloudClient.swift */;
+			fileRef = 000000000000000000000006 /* RemarkableAuth.swift */;
 		};
-		000000000000000000000031 /* TokenStore.swift in Sources */ = {
+		000000000000000000000032 /* RemarkableCloudClient.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000007 /* TokenStore.swift */;
+			fileRef = 000000000000000000000007 /* RemarkableCloudClient.swift */;
 		};
-		000000000000000000000032 /* UploadResult.swift in Sources */ = {
+		000000000000000000000033 /* TokenStore.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000008 /* UploadResult.swift */;
+			fileRef = 000000000000000000000008 /* TokenStore.swift */;
 		};
-		000000000000000000000033 /* SafariWebExtensionHandler.swift in Sources */ = {
+		000000000000000000000034 /* UploadResult.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000012 /* SafariWebExtensionHandler.swift */;
+			fileRef = 000000000000000000000009 /* UploadResult.swift */;
 		};
-		000000000000000000000034 /* AppPreferences.swift in Sources */ = {
+		000000000000000000000035 /* SafariWebExtensionHandler.swift in Sources */ = {
+			isa = PBXBuildFile;
+			fileRef = 000000000000000000000013 /* SafariWebExtensionHandler.swift */;
+		};
+		000000000000000000000036 /* AppPreferences.swift in Sources */ = {
 			isa = PBXBuildFile;
 			fileRef = 000000000000000000000001 /* AppPreferences.swift */;
 		};
-		000000000000000000000035 /* ArticleConverter.swift in Sources */ = {
+		000000000000000000000037 /* ArticleConverter.swift in Sources */ = {
 			isa = PBXBuildFile;
 			fileRef = 000000000000000000000002 /* ArticleConverter.swift */;
 		};
-		000000000000000000000036 /* ArticleDraft.swift in Sources */ = {
+		000000000000000000000038 /* ArticleDraft.swift in Sources */ = {
 			isa = PBXBuildFile;
 			fileRef = 000000000000000000000003 /* ArticleDraft.swift */;
 		};
-		000000000000000000000037 /* ExtensionMessageRouter.swift in Sources */ = {
+		000000000000000000000039 /* ExtensionMessageRouter.swift in Sources */ = {
 			isa = PBXBuildFile;
 			fileRef = 000000000000000000000004 /* ExtensionMessageRouter.swift */;
 		};
-		000000000000000000000038 /* RemarkableAuth.swift in Sources */ = {
+		00000000000000000000003A /* PairingCode.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000005 /* RemarkableAuth.swift */;
+			fileRef = 000000000000000000000005 /* PairingCode.swift */;
 		};
-		000000000000000000000039 /* RemarkableCloudClient.swift in Sources */ = {
+		00000000000000000000003B /* RemarkableAuth.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000006 /* RemarkableCloudClient.swift */;
+			fileRef = 000000000000000000000006 /* RemarkableAuth.swift */;
 		};
-		00000000000000000000003A /* TokenStore.swift in Sources */ = {
+		00000000000000000000003C /* RemarkableCloudClient.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000007 /* TokenStore.swift */;
+			fileRef = 000000000000000000000007 /* RemarkableCloudClient.swift */;
 		};
-		00000000000000000000003B /* UploadResult.swift in Sources */ = {
+		00000000000000000000003D /* TokenStore.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000008 /* UploadResult.swift */;
+			fileRef = 000000000000000000000008 /* TokenStore.swift */;
 		};
-		00000000000000000000003C /* Assets.xcassets in Resources */ = {
+		00000000000000000000003E /* UploadResult.swift in Sources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000011 /* Assets.xcassets */;
+			fileRef = 000000000000000000000009 /* UploadResult.swift */;
 		};
-		00000000000000000000003D /* PrivacyInfo.xcprivacy in Resources */ = {
+		00000000000000000000003F /* Assets.xcassets in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000010 /* PrivacyInfo.xcprivacy */;
+			fileRef = 000000000000000000000012 /* Assets.xcassets */;
 		};
-		00000000000000000000003E /* manifest.json in Resources */ = {
+		000000000000000000000040 /* PrivacyInfo.xcprivacy in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000016 /* manifest.json */;
+			fileRef = 000000000000000000000011 /* PrivacyInfo.xcprivacy */;
 		};
-		00000000000000000000003F /* popup.html in Resources */ = {
+		000000000000000000000041 /* manifest.json in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000017 /* popup.html */;
+			fileRef = 000000000000000000000017 /* manifest.json */;
 		};
-		000000000000000000000040 /* popup.css in Resources */ = {
+		000000000000000000000042 /* popup.html in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000018 /* popup.css */;
+			fileRef = 000000000000000000000018 /* popup.html */;
 		};
-		000000000000000000000041 /* background.js in Resources */ = {
+		000000000000000000000043 /* popup.css in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000019 /* background.js */;
+			fileRef = 000000000000000000000019 /* popup.css */;
 		};
-		000000000000000000000042 /* content.js in Resources */ = {
+		000000000000000000000044 /* background.js in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 00000000000000000000001A /* content.js */;
+			fileRef = 00000000000000000000001A /* background.js */;
 		};
-		000000000000000000000043 /* popup.js in Resources */ = {
+		000000000000000000000045 /* content.js in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 00000000000000000000001B /* popup.js */;
+			fileRef = 00000000000000000000001B /* content.js */;
 		};
-		000000000000000000000044 /* icon-48.png in Resources */ = {
+		000000000000000000000046 /* popup.js in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 00000000000000000000001C /* icon-48.png */;
+			fileRef = 00000000000000000000001C /* popup.js */;
 		};
-		000000000000000000000045 /* icon-64.png in Resources */ = {
+		000000000000000000000047 /* icon-48.png in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 00000000000000000000001D /* icon-64.png */;
+			fileRef = 00000000000000000000001D /* icon-48.png */;
 		};
-		000000000000000000000046 /* icon-96.png in Resources */ = {
+		000000000000000000000048 /* icon-64.png in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 00000000000000000000001E /* icon-96.png */;
+			fileRef = 00000000000000000000001E /* icon-64.png */;
 		};
-		000000000000000000000047 /* icon-128.png in Resources */ = {
+		000000000000000000000049 /* icon-96.png in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 00000000000000000000001F /* icon-128.png */;
+			fileRef = 00000000000000000000001F /* icon-96.png */;
 		};
-		000000000000000000000048 /* icon-256.png in Resources */ = {
+		00000000000000000000004A /* icon-128.png in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000020 /* icon-256.png */;
+			fileRef = 000000000000000000000020 /* icon-128.png */;
 		};
-		000000000000000000000049 /* icon-512.png in Resources */ = {
+		00000000000000000000004B /* icon-256.png in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000021 /* icon-512.png */;
+			fileRef = 000000000000000000000021 /* icon-256.png */;
 		};
-		00000000000000000000004A /* PrivacyInfo.xcprivacy in Resources */ = {
+		00000000000000000000004C /* icon-512.png in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000015 /* PrivacyInfo.xcprivacy */;
+			fileRef = 000000000000000000000022 /* icon-512.png */;
 		};
-		00000000000000000000004B /* Security.framework in Frameworks */ = {
+		00000000000000000000004D /* PrivacyInfo.xcprivacy in Resources */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000024 /* Security.framework */;
+			fileRef = 000000000000000000000016 /* PrivacyInfo.xcprivacy */;
 		};
-		00000000000000000000004C /* Security.framework in Frameworks */ = {
+		00000000000000000000004E /* Security.framework in Frameworks */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000024 /* Security.framework */;
+			fileRef = 000000000000000000000025 /* Security.framework */;
 		};
-		00000000000000000000004D /* SafariServices.framework in Frameworks */ = {
+		00000000000000000000004F /* Security.framework in Frameworks */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000025 /* SafariServices.framework */;
+			fileRef = 000000000000000000000025 /* Security.framework */;
 		};
-		00000000000000000000004E /* PageToPaperExtension.appex in Embed Foundation Extensions */ = {
+		000000000000000000000050 /* SafariServices.framework in Frameworks */ = {
 			isa = PBXBuildFile;
-			fileRef = 000000000000000000000023 /* PageToPaperExtension.appex */;
+			fileRef = 000000000000000000000026 /* SafariServices.framework */;
+		};
+		000000000000000000000051 /* PageToPaperExtension.appex in Embed Foundation Extensions */ = {
+			isa = PBXBuildFile;
+			fileRef = 000000000000000000000024 /* PageToPaperExtension.appex */;
 			settings = {
 				ATTRIBUTES = (
 					CodeSignOnCopy,
@@ -179,21 +187,21 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		000000000000000000000060 /* PBXContainerItemProxy */ = {
+		000000000000000000000063 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 00000000000000000000005F /* Project object */;
+			containerPortal = 000000000000000000000062 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = "000000000000000000000061";
+			remoteGlobalIDString = "000000000000000000000064";
 			remoteInfo = PageToPaperExtension;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		000000000000000000000055 /* Embed Foundation Extensions */ = {
+		000000000000000000000058 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				00000000000000000000004E /* PageToPaperExtension.appex in Embed Foundation Extensions */,
+				000000000000000000000051 /* PageToPaperExtension.appex in Embed Foundation Extensions */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			dstPath = "";
@@ -227,202 +235,208 @@
 			path = ExtensionMessageRouter.swift;
 			sourceTree = "<group>";
 		};
-		000000000000000000000005 /* RemarkableAuth.swift */ = {
+		000000000000000000000005 /* PairingCode.swift */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = PairingCode.swift;
+			sourceTree = "<group>";
+		};
+		000000000000000000000006 /* RemarkableAuth.swift */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
 			path = RemarkableAuth.swift;
 			sourceTree = "<group>";
 		};
-		000000000000000000000006 /* RemarkableCloudClient.swift */ = {
+		000000000000000000000007 /* RemarkableCloudClient.swift */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
 			path = RemarkableCloudClient.swift;
 			sourceTree = "<group>";
 		};
-		000000000000000000000007 /* TokenStore.swift */ = {
+		000000000000000000000008 /* TokenStore.swift */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
 			path = TokenStore.swift;
 			sourceTree = "<group>";
 		};
-		000000000000000000000008 /* UploadResult.swift */ = {
+		000000000000000000000009 /* UploadResult.swift */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
 			path = UploadResult.swift;
 			sourceTree = "<group>";
 		};
-		000000000000000000000009 /* PageToPaperApp.swift */ = {
+		00000000000000000000000A /* PageToPaperApp.swift */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
 			path = PageToPaperApp.swift;
 			sourceTree = "<group>";
 		};
-		00000000000000000000000A /* RootView.swift */ = {
+		00000000000000000000000B /* RootView.swift */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
 			path = RootView.swift;
 			sourceTree = "<group>";
 		};
-		00000000000000000000000B /* OnboardingView.swift */ = {
+		00000000000000000000000C /* OnboardingView.swift */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
 			path = OnboardingView.swift;
 			sourceTree = "<group>";
 		};
-		00000000000000000000000C /* PairingView.swift */ = {
+		00000000000000000000000D /* PairingView.swift */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
 			path = PairingView.swift;
 			sourceTree = "<group>";
 		};
-		00000000000000000000000D /* SettingsView.swift */ = {
+		00000000000000000000000E /* SettingsView.swift */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
 			path = SettingsView.swift;
 			sourceTree = "<group>";
 		};
-		00000000000000000000000E /* Info.plist */ = {
+		00000000000000000000000F /* Info.plist */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = text.plist.xml;
 			path = Info.plist;
 			sourceTree = "<group>";
 		};
-		00000000000000000000000F /* PageToPaper.entitlements */ = {
+		000000000000000000000010 /* PageToPaper.entitlements */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = text.plist.entitlements;
 			path = PageToPaper.entitlements;
 			sourceTree = "<group>";
 		};
-		000000000000000000000010 /* PrivacyInfo.xcprivacy */ = {
+		000000000000000000000011 /* PrivacyInfo.xcprivacy */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = text.plist.xml;
 			path = PrivacyInfo.xcprivacy;
 			sourceTree = "<group>";
 		};
-		000000000000000000000011 /* Assets.xcassets */ = {
+		000000000000000000000012 /* Assets.xcassets */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = folder.assetcatalog;
 			path = Assets.xcassets;
 			sourceTree = "<group>";
 		};
-		000000000000000000000012 /* SafariWebExtensionHandler.swift */ = {
+		000000000000000000000013 /* SafariWebExtensionHandler.swift */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
 			path = SafariWebExtensionHandler.swift;
 			sourceTree = "<group>";
 		};
-		000000000000000000000013 /* Info.plist */ = {
+		000000000000000000000014 /* Info.plist */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = text.plist.xml;
 			path = Info.plist;
 			sourceTree = "<group>";
 		};
-		000000000000000000000014 /* PageToPaperExtension.entitlements */ = {
+		000000000000000000000015 /* PageToPaperExtension.entitlements */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = text.plist.entitlements;
 			path = PageToPaperExtension.entitlements;
 			sourceTree = "<group>";
 		};
-		000000000000000000000015 /* PrivacyInfo.xcprivacy */ = {
+		000000000000000000000016 /* PrivacyInfo.xcprivacy */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = text.plist.xml;
 			path = PrivacyInfo.xcprivacy;
 			sourceTree = "<group>";
 		};
-		000000000000000000000016 /* manifest.json */ = {
+		000000000000000000000017 /* manifest.json */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = text.json;
 			path = manifest.json;
 			sourceTree = "<group>";
 		};
-		000000000000000000000017 /* popup.html */ = {
+		000000000000000000000018 /* popup.html */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = text.html;
 			path = popup.html;
 			sourceTree = "<group>";
 		};
-		000000000000000000000018 /* popup.css */ = {
+		000000000000000000000019 /* popup.css */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = text.css;
 			path = popup.css;
 			sourceTree = "<group>";
 		};
-		000000000000000000000019 /* background.js */ = {
+		00000000000000000000001A /* background.js */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.javascript;
 			path = background.js;
 			sourceTree = "<group>";
 		};
-		00000000000000000000001A /* content.js */ = {
+		00000000000000000000001B /* content.js */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.javascript;
 			path = content.js;
 			sourceTree = "<group>";
 		};
-		00000000000000000000001B /* popup.js */ = {
+		00000000000000000000001C /* popup.js */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.javascript;
 			path = popup.js;
 			sourceTree = "<group>";
 		};
-		00000000000000000000001C /* icon-48.png */ = {
+		00000000000000000000001D /* icon-48.png */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = image.png;
 			path = "icon-48.png";
 			sourceTree = "<group>";
 		};
-		00000000000000000000001D /* icon-64.png */ = {
+		00000000000000000000001E /* icon-64.png */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = image.png;
 			path = "icon-64.png";
 			sourceTree = "<group>";
 		};
-		00000000000000000000001E /* icon-96.png */ = {
+		00000000000000000000001F /* icon-96.png */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = image.png;
 			path = "icon-96.png";
 			sourceTree = "<group>";
 		};
-		00000000000000000000001F /* icon-128.png */ = {
+		000000000000000000000020 /* icon-128.png */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = image.png;
 			path = "icon-128.png";
 			sourceTree = "<group>";
 		};
-		000000000000000000000020 /* icon-256.png */ = {
+		000000000000000000000021 /* icon-256.png */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = image.png;
 			path = "icon-256.png";
 			sourceTree = "<group>";
 		};
-		000000000000000000000021 /* icon-512.png */ = {
+		000000000000000000000022 /* icon-512.png */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = image.png;
 			path = "icon-512.png";
 			sourceTree = "<group>";
 		};
-		000000000000000000000022 /* PageToPaper.app */ = {
+		000000000000000000000023 /* PageToPaper.app */ = {
 			isa = PBXFileReference;
 			explicitFileType = wrapper.application;
 			includeInIndex = 0;
 			path = PageToPaper.app;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
-		000000000000000000000023 /* PageToPaperExtension.appex */ = {
+		000000000000000000000024 /* PageToPaperExtension.appex */ = {
 			isa = PBXFileReference;
 			explicitFileType = "wrapper.app-extension";
 			includeInIndex = 0;
 			path = PageToPaperExtension.appex;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
-		000000000000000000000024 /* Security.framework */ = {
+		000000000000000000000025 /* Security.framework */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = Security.framework;
 			path = System/Library/Frameworks/Security.framework;
 			sourceTree = SDKROOT;
 		};
-		000000000000000000000025 /* SafariServices.framework */ = {
+		000000000000000000000026 /* SafariServices.framework */ = {
 			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = SafariServices.framework;
@@ -432,173 +446,174 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		000000000000000000000051 /* Frameworks */ = {
+		000000000000000000000054 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				00000000000000000000004B /* Security.framework in Frameworks */,
+				00000000000000000000004E /* Security.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		000000000000000000000052 /* Frameworks */ = {
+		000000000000000000000055 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				00000000000000000000004C /* Security.framework in Frameworks */,
-				00000000000000000000004D /* SafariServices.framework in Frameworks */,
+				00000000000000000000004F /* Security.framework in Frameworks */,
+				000000000000000000000050 /* SafariServices.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		000000000000000000000056 /* Views */ = {
+		000000000000000000000059 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				00000000000000000000000B /* OnboardingView.swift */,
-				00000000000000000000000C /* PairingView.swift */,
-				00000000000000000000000D /* SettingsView.swift */,
+				00000000000000000000000C /* OnboardingView.swift */,
+				00000000000000000000000D /* PairingView.swift */,
+				00000000000000000000000E /* SettingsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
 		};
-		000000000000000000000057 /* App */ = {
+		00000000000000000000005A /* App */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000009 /* PageToPaperApp.swift */,
-				00000000000000000000000A /* RootView.swift */,
-				000000000000000000000056 /* Views */,
-				00000000000000000000000E /* Info.plist */,
-				00000000000000000000000F /* PageToPaper.entitlements */,
-				000000000000000000000010 /* PrivacyInfo.xcprivacy */,
-				000000000000000000000011 /* Assets.xcassets */,
+				00000000000000000000000A /* PageToPaperApp.swift */,
+				00000000000000000000000B /* RootView.swift */,
+				000000000000000000000059 /* Views */,
+				00000000000000000000000F /* Info.plist */,
+				000000000000000000000010 /* PageToPaper.entitlements */,
+				000000000000000000000011 /* PrivacyInfo.xcprivacy */,
+				000000000000000000000012 /* Assets.xcassets */,
 			);
 			path = App;
 			sourceTree = "<group>";
 		};
-		000000000000000000000058 /* Resources */ = {
+		00000000000000000000005B /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000016 /* manifest.json */,
-				000000000000000000000017 /* popup.html */,
-				000000000000000000000018 /* popup.css */,
-				000000000000000000000019 /* background.js */,
-				00000000000000000000001A /* content.js */,
-				00000000000000000000001B /* popup.js */,
-				00000000000000000000001C /* icon-48.png */,
-				00000000000000000000001D /* icon-64.png */,
-				00000000000000000000001E /* icon-96.png */,
-				00000000000000000000001F /* icon-128.png */,
-				000000000000000000000020 /* icon-256.png */,
-				000000000000000000000021 /* icon-512.png */,
+				000000000000000000000017 /* manifest.json */,
+				000000000000000000000018 /* popup.html */,
+				000000000000000000000019 /* popup.css */,
+				00000000000000000000001A /* background.js */,
+				00000000000000000000001B /* content.js */,
+				00000000000000000000001C /* popup.js */,
+				00000000000000000000001D /* icon-48.png */,
+				00000000000000000000001E /* icon-64.png */,
+				00000000000000000000001F /* icon-96.png */,
+				000000000000000000000020 /* icon-128.png */,
+				000000000000000000000021 /* icon-256.png */,
+				000000000000000000000022 /* icon-512.png */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		000000000000000000000059 /* Extension */ = {
+		00000000000000000000005C /* Extension */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000012 /* SafariWebExtensionHandler.swift */,
-				000000000000000000000013 /* Info.plist */,
-				000000000000000000000014 /* PageToPaperExtension.entitlements */,
-				000000000000000000000015 /* PrivacyInfo.xcprivacy */,
-				000000000000000000000058 /* Resources */,
+				000000000000000000000013 /* SafariWebExtensionHandler.swift */,
+				000000000000000000000014 /* Info.plist */,
+				000000000000000000000015 /* PageToPaperExtension.entitlements */,
+				000000000000000000000016 /* PrivacyInfo.xcprivacy */,
+				00000000000000000000005B /* Resources */,
 			);
 			path = Extension;
 			sourceTree = "<group>";
 		};
-		00000000000000000000005A /* Shared */ = {
+		00000000000000000000005D /* Shared */ = {
 			isa = PBXGroup;
 			children = (
 				000000000000000000000001 /* AppPreferences.swift */,
 				000000000000000000000002 /* ArticleConverter.swift */,
 				000000000000000000000003 /* ArticleDraft.swift */,
 				000000000000000000000004 /* ExtensionMessageRouter.swift */,
-				000000000000000000000005 /* RemarkableAuth.swift */,
-				000000000000000000000006 /* RemarkableCloudClient.swift */,
-				000000000000000000000007 /* TokenStore.swift */,
-				000000000000000000000008 /* UploadResult.swift */,
+				000000000000000000000005 /* PairingCode.swift */,
+				000000000000000000000006 /* RemarkableAuth.swift */,
+				000000000000000000000007 /* RemarkableCloudClient.swift */,
+				000000000000000000000008 /* TokenStore.swift */,
+				000000000000000000000009 /* UploadResult.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
 		};
-		00000000000000000000005B /* PageToPaper */ = {
+		00000000000000000000005E /* PageToPaper */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000057 /* App */,
-				000000000000000000000059 /* Extension */,
-				00000000000000000000005A /* Shared */,
+				00000000000000000000005A /* App */,
+				00000000000000000000005C /* Extension */,
+				00000000000000000000005D /* Shared */,
 			);
 			path = PageToPaper;
 			sourceTree = "<group>";
 		};
-		00000000000000000000005C /* Frameworks */ = {
+		00000000000000000000005F /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000024 /* Security.framework */,
-				000000000000000000000025 /* SafariServices.framework */,
+				000000000000000000000025 /* Security.framework */,
+				000000000000000000000026 /* SafariServices.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		00000000000000000000005D /* Products */ = {
+		000000000000000000000060 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000022 /* PageToPaper.app */,
-				000000000000000000000023 /* PageToPaperExtension.appex */,
+				000000000000000000000023 /* PageToPaper.app */,
+				000000000000000000000024 /* PageToPaperExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		00000000000000000000005E /* Main */ = {
+		000000000000000000000061 /* Main */ = {
 			isa = PBXGroup;
 			children = (
-				00000000000000000000005B /* PageToPaper */,
-				00000000000000000000005C /* Frameworks */,
-				00000000000000000000005D /* Products */,
+				00000000000000000000005E /* PageToPaper */,
+				00000000000000000000005F /* Frameworks */,
+				000000000000000000000060 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		000000000000000000000061 /* PageToPaperExtension */ = {
+		000000000000000000000064 /* PageToPaperExtension */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 00000000000000000000006C /* PageToPaperExtension configuration list */;
+			buildConfigurationList = 00000000000000000000006F /* PageToPaperExtension configuration list */;
 			buildPhases = (
-				000000000000000000000050 /* Sources */,
-				000000000000000000000052 /* Frameworks */,
-				000000000000000000000054 /* Resources */,
+				000000000000000000000053 /* Sources */,
+				000000000000000000000055 /* Frameworks */,
+				000000000000000000000057 /* Resources */,
 			);
 			buildRules = ();
 			dependencies = ();
 			name = PageToPaperExtension;
 			productName = PageToPaperExtension;
-			productReference = 000000000000000000000023 /* PageToPaperExtension.appex */;
+			productReference = 000000000000000000000024 /* PageToPaperExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		000000000000000000000063 /* PageToPaper */ = {
+		000000000000000000000066 /* PageToPaper */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 00000000000000000000006B /* PageToPaper configuration list */;
+			buildConfigurationList = 00000000000000000000006E /* PageToPaper configuration list */;
 			buildPhases = (
-				00000000000000000000004F /* Sources */,
-				000000000000000000000051 /* Frameworks */,
-				000000000000000000000053 /* Resources */,
-				000000000000000000000055 /* Embed Foundation Extensions */,
+				000000000000000000000052 /* Sources */,
+				000000000000000000000054 /* Frameworks */,
+				000000000000000000000056 /* Resources */,
+				000000000000000000000058 /* Embed Foundation Extensions */,
 			);
 			buildRules = ();
 			dependencies = (
-				000000000000000000000062 /* PBXTargetDependency */,
+				000000000000000000000065 /* PBXTargetDependency */,
 			);
 			name = PageToPaper;
 			productName = PageToPaper;
-			productReference = 000000000000000000000022 /* PageToPaper.app */;
+			productReference = 000000000000000000000023 /* PageToPaper.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		00000000000000000000005F /* Project object */ = {
+		000000000000000000000062 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
@@ -606,15 +621,15 @@
 				LastUpgradeCheck = 1500;
 				ORGANIZATIONNAME = "Page to Paper";
 				TargetAttributes = {
-					000000000000000000000063 = {
+					000000000000000000000066 = {
 						CreatedOnToolsVersion = "15.0";
 					};
-					000000000000000000000061 = {
+					000000000000000000000064 = {
 						CreatedOnToolsVersion = "15.0";
 					};
 				};
 			};
-			buildConfigurationList = 00000000000000000000006A /* PBXProject configuration list */;
+			buildConfigurationList = 00000000000000000000006D /* PBXProject configuration list */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -622,98 +637,100 @@
 				en,
 				Base,
 			);
-			mainGroup = 00000000000000000000005E /* Main */;
-			productRefGroup = 00000000000000000000005D /* Products */;
+			mainGroup = 000000000000000000000061 /* Main */;
+			productRefGroup = 000000000000000000000060 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				000000000000000000000063 /* PageToPaper */,
-				000000000000000000000061 /* PageToPaperExtension */,
+				000000000000000000000066 /* PageToPaper */,
+				000000000000000000000064 /* PageToPaperExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		000000000000000000000053 /* Resources */ = {
+		000000000000000000000056 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				00000000000000000000003C /* Assets.xcassets in Resources */,
-				00000000000000000000003D /* PrivacyInfo.xcprivacy in Resources */,
+				00000000000000000000003F /* Assets.xcassets in Resources */,
+				000000000000000000000040 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		000000000000000000000054 /* Resources */ = {
+		000000000000000000000057 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				00000000000000000000003E /* manifest.json in Resources */,
-				00000000000000000000003F /* popup.html in Resources */,
-				000000000000000000000040 /* popup.css in Resources */,
-				000000000000000000000041 /* background.js in Resources */,
-				000000000000000000000042 /* content.js in Resources */,
-				000000000000000000000043 /* popup.js in Resources */,
-				000000000000000000000044 /* icon-48.png in Resources */,
-				000000000000000000000045 /* icon-64.png in Resources */,
-				000000000000000000000046 /* icon-96.png in Resources */,
-				000000000000000000000047 /* icon-128.png in Resources */,
-				000000000000000000000048 /* icon-256.png in Resources */,
-				000000000000000000000049 /* icon-512.png in Resources */,
-				00000000000000000000004A /* PrivacyInfo.xcprivacy in Resources */,
+				000000000000000000000041 /* manifest.json in Resources */,
+				000000000000000000000042 /* popup.html in Resources */,
+				000000000000000000000043 /* popup.css in Resources */,
+				000000000000000000000044 /* background.js in Resources */,
+				000000000000000000000045 /* content.js in Resources */,
+				000000000000000000000046 /* popup.js in Resources */,
+				000000000000000000000047 /* icon-48.png in Resources */,
+				000000000000000000000048 /* icon-64.png in Resources */,
+				000000000000000000000049 /* icon-96.png in Resources */,
+				00000000000000000000004A /* icon-128.png in Resources */,
+				00000000000000000000004B /* icon-256.png in Resources */,
+				00000000000000000000004C /* icon-512.png in Resources */,
+				00000000000000000000004D /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		00000000000000000000004F /* Sources */ = {
+		000000000000000000000052 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				000000000000000000000026 /* PageToPaperApp.swift in Sources */,
-				000000000000000000000027 /* RootView.swift in Sources */,
-				000000000000000000000028 /* OnboardingView.swift in Sources */,
-				000000000000000000000029 /* PairingView.swift in Sources */,
-				00000000000000000000002A /* SettingsView.swift in Sources */,
-				00000000000000000000002B /* AppPreferences.swift in Sources */,
-				00000000000000000000002C /* ArticleConverter.swift in Sources */,
-				00000000000000000000002D /* ArticleDraft.swift in Sources */,
-				00000000000000000000002E /* ExtensionMessageRouter.swift in Sources */,
-				00000000000000000000002F /* RemarkableAuth.swift in Sources */,
-				000000000000000000000030 /* RemarkableCloudClient.swift in Sources */,
-				000000000000000000000031 /* TokenStore.swift in Sources */,
-				000000000000000000000032 /* UploadResult.swift in Sources */,
+				000000000000000000000027 /* PageToPaperApp.swift in Sources */,
+				000000000000000000000028 /* RootView.swift in Sources */,
+				000000000000000000000029 /* OnboardingView.swift in Sources */,
+				00000000000000000000002A /* PairingView.swift in Sources */,
+				00000000000000000000002B /* SettingsView.swift in Sources */,
+				00000000000000000000002C /* AppPreferences.swift in Sources */,
+				00000000000000000000002D /* ArticleConverter.swift in Sources */,
+				00000000000000000000002E /* ArticleDraft.swift in Sources */,
+				00000000000000000000002F /* ExtensionMessageRouter.swift in Sources */,
+				000000000000000000000030 /* PairingCode.swift in Sources */,
+				000000000000000000000031 /* RemarkableAuth.swift in Sources */,
+				000000000000000000000032 /* RemarkableCloudClient.swift in Sources */,
+				000000000000000000000033 /* TokenStore.swift in Sources */,
+				000000000000000000000034 /* UploadResult.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		000000000000000000000050 /* Sources */ = {
+		000000000000000000000053 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				000000000000000000000033 /* SafariWebExtensionHandler.swift in Sources */,
-				000000000000000000000034 /* AppPreferences.swift in Sources */,
-				000000000000000000000035 /* ArticleConverter.swift in Sources */,
-				000000000000000000000036 /* ArticleDraft.swift in Sources */,
-				000000000000000000000037 /* ExtensionMessageRouter.swift in Sources */,
-				000000000000000000000038 /* RemarkableAuth.swift in Sources */,
-				000000000000000000000039 /* RemarkableCloudClient.swift in Sources */,
-				00000000000000000000003A /* TokenStore.swift in Sources */,
-				00000000000000000000003B /* UploadResult.swift in Sources */,
+				000000000000000000000035 /* SafariWebExtensionHandler.swift in Sources */,
+				000000000000000000000036 /* AppPreferences.swift in Sources */,
+				000000000000000000000037 /* ArticleConverter.swift in Sources */,
+				000000000000000000000038 /* ArticleDraft.swift in Sources */,
+				000000000000000000000039 /* ExtensionMessageRouter.swift in Sources */,
+				00000000000000000000003A /* PairingCode.swift in Sources */,
+				00000000000000000000003B /* RemarkableAuth.swift in Sources */,
+				00000000000000000000003C /* RemarkableCloudClient.swift in Sources */,
+				00000000000000000000003D /* TokenStore.swift in Sources */,
+				00000000000000000000003E /* UploadResult.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		000000000000000000000062 /* PBXTargetDependency */ = {
+		000000000000000000000065 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 000000000000000000000061 /* PageToPaperExtension */;
-			targetProxy = 000000000000000000000060 /* PBXContainerItemProxy */;
+			target = 000000000000000000000064 /* PageToPaperExtension */;
+			targetProxy = 000000000000000000000063 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		000000000000000000000064 /* Debug */ = {
+		000000000000000000000067 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -772,7 +789,7 @@
 			};
 			name = Debug;
 		};
-		000000000000000000000065 /* Release */ = {
+		000000000000000000000068 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -824,7 +841,7 @@
 			};
 			name = Release;
 		};
-		000000000000000000000066 /* Debug */ = {
+		000000000000000000000069 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -856,7 +873,7 @@
 			};
 			name = Debug;
 		};
-		000000000000000000000067 /* Release */ = {
+		00000000000000000000006A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -888,7 +905,7 @@
 			};
 			name = Release;
 		};
-		000000000000000000000068 /* Debug */ = {
+		00000000000000000000006B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -920,7 +937,7 @@
 			};
 			name = Debug;
 		};
-		000000000000000000000069 /* Release */ = {
+		00000000000000000000006C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -955,34 +972,34 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		00000000000000000000006A /* PBXProject configuration list */ = {
+		00000000000000000000006D /* PBXProject configuration list */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				000000000000000000000064 /* Debug */,
-				000000000000000000000065 /* Release */,
+				000000000000000000000067 /* Debug */,
+				000000000000000000000068 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		00000000000000000000006B /* PageToPaper configuration list */ = {
+		00000000000000000000006E /* PageToPaper configuration list */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				000000000000000000000066 /* Debug */,
-				000000000000000000000067 /* Release */,
+				000000000000000000000069 /* Debug */,
+				00000000000000000000006A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		00000000000000000000006C /* PageToPaperExtension configuration list */ = {
+		00000000000000000000006F /* PageToPaperExtension configuration list */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				000000000000000000000068 /* Debug */,
-				000000000000000000000069 /* Release */,
+				00000000000000000000006B /* Debug */,
+				00000000000000000000006C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = 00000000000000000000005F /* Project object */;
+	rootObject = 000000000000000000000062 /* Project object */;
 }

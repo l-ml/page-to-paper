@@ -35,6 +35,9 @@ def main() -> int:
                 raise SystemExit("app display name")
             if "UILaunchScreen" not in data:
                 raise SystemExit("missing launch screen")
+            schemes = data["CFBundleURLTypes"][0]["CFBundleURLSchemes"]
+            if schemes != ["pagetopaper"]:
+                raise SystemExit(f"url schemes {schemes}")
         if path.name.endswith(".entitlements"):
             groups = data["com.apple.security.application-groups"]
             keychain = data["keychain-access-groups"]

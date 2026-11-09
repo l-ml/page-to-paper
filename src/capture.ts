@@ -1,42 +1,36 @@
-import {
-  buildUploadRequest,
-  parseArticleDraft,
-  parseUploadResult,
-  type UploadResult,
-} from "./messaging";
+import { sendToContainingApp, buildUploadRequest, parseArticleDraft, parsePairingStatus, parseUploadResult, type ArticleDraft, type UploadResult } from "./messaging";
 
-export interface CaptureDependencies {
+export interface ReadDependencies {
   queryActiveTab: () => Promise<{ id?: number } | undefined>;
   extract: (tabId: number) => Promise<unknown>;
-  sendNative: (message: unknown) => Promise<unknown>;
 }
 
-const pageUnread =
-  "Could not read this page. Allow Page to Paper for the site in Safari, then try again.";
-
-export async function captureActiveArticle(deps: CaptureDependencies): Promise<UploadResult> {
+export async function readActivePage(deps: ReadDependencies): Promise<{ ok: true; draft: ArticleDraft } | { ok: false }> {
   const tab = await deps.queryActiveTab();
-  if (tab?.id === undefined) {
-    return { ok: false, message: "No active tab." };
-  }
-
-  let raw: unknown;
+  if (tab?.id === undefined) return { ok: false };
   try {
-    raw = await deps.extract(tab.id);
+    return { ok: true, draft: parseArticleDraft(await deps.extract(tab.id)) };
   } catch {
-    return { ok: false, message: pageUnread };
+    return { ok: false };
   }
+}
 
-  let request;
+export async function queryPaired(sendNative: (application: string, body: unknown) => Promise<unknown>): Promise<boolean> {
   try {
-    request = buildUploadRequest(parseArticleDraft(raw));
-  } catch (error) {
-    const message = error instanceof Error && error.message ? error.message : pageUnread;
-    return { ok: false, message };
+    const raw = await sendToContainingApp({ type: "pairingStatus" }, sendNative);
+    return parsePairingStatus(raw).paired;
+  } catch {
+    return false;
   }
+}
 
+export async function uploadDraft(
+  draft: ArticleDraft,
+  sendNative: (application: string, body: unknown) => Promise<unknown>,
+): Promise<UploadResult> {
   try {
-    return parseUploadResult(await deps.sendNative(request));
+    const raw = await sendToContainingApp(buildUploadRequest(draft), sendNative);
+    return parseUploadResult(raw);
   } catch {
     return { ok: false, message: "The Page to Paper app did not answer." };
   }

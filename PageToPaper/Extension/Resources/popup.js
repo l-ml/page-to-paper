@@ -1,6 +1,16 @@
 /* Generated from src/ by esbuild. Do not edit. */
 "use strict";
 (() => {
+  // src/appLink.ts
+  var pairingBaseUrl = "pagetopaper://pair";
+  function pairingDeepLink(reason) {
+    if (!reason) return pairingBaseUrl;
+    return `${pairingBaseUrl}?reason=${reason}`;
+  }
+  function assignPairingLink(location, reason) {
+    location.href = pairingDeepLink(reason);
+  }
+
   // src/messaging.ts
   var limits = {
     title: 300,
@@ -13,7 +23,8 @@
   var messageTypes = {
     extractArticle: "extractArticle",
     articleDraft: "articleDraft",
-    uploadArticle: "uploadArticle"
+    uploadArticle: "uploadArticle",
+    pairingStatus: "pairingStatus"
   };
   var forbiddenSecretKeys = [
     "token",
@@ -144,38 +155,252 @@
     }
     return result;
   }
+  function parsePairingStatus(value) {
+    if (findForbiddenSecretKey(value)) {
+      throw new MessageShapeError("Messages must not carry secrets.");
+    }
+    if (!isRecord(value) || typeof value.paired !== "boolean") {
+      throw new MessageShapeError("Pairing status is unreadable.");
+    }
+    return { paired: value.paired };
+  }
   function sendToContainingApp(message, sendNativeMessage) {
     return sendNativeMessage(containingAppNativeId, message);
   }
 
   // src/capture.ts
-  var pageUnread = "Could not read this page. Allow Page to Paper for the site in Safari, then try again.";
-  async function captureActiveArticle(deps) {
+  async function readActivePage(deps) {
     const tab = await deps.queryActiveTab();
-    if (tab?.id === void 0) {
-      return { ok: false, message: "No active tab." };
-    }
-    let raw;
+    if (tab?.id === void 0) return { ok: false };
     try {
-      raw = await deps.extract(tab.id);
+      return { ok: true, draft: parseArticleDraft(await deps.extract(tab.id)) };
     } catch {
-      return { ok: false, message: pageUnread };
+      return { ok: false };
     }
-    let request;
+  }
+  async function queryPaired(sendNative) {
     try {
-      request = buildUploadRequest(parseArticleDraft(raw));
-    } catch (error) {
-      const message = error instanceof Error && error.message ? error.message : pageUnread;
-      return { ok: false, message };
+      const raw = await sendToContainingApp({ type: "pairingStatus" }, sendNative);
+      return parsePairingStatus(raw).paired;
+    } catch {
+      return false;
     }
+  }
+  async function uploadDraft(draft, sendNative) {
     try {
-      return parseUploadResult(await deps.sendNative(request));
+      const raw = await sendToContainingApp(buildUploadRequest(draft), sendNative);
+      return parseUploadResult(raw);
     } catch {
       return { ok: false, message: "The Page to Paper app did not answer." };
     }
   }
 
+  // src/popupState.ts
+  var successDismissMs = 1200;
+  function initialPopup() {
+    return { name: "idle" };
+  }
+  function previewFromDraft(draft) {
+    const hostname = new URL(draft.url).hostname;
+    const trimmed = draft.title.trim();
+    const title = !trimmed || trimmed === "Untitled" ? hostname || "Untitled page" : trimmed;
+    return { title, hostname, draft };
+  }
+  function reducePopup(state, event) {
+    switch (event.type) {
+      case "open":
+        return { name: "reading" };
+      case "pageLoaded":
+        if (state.name !== "reading") return state;
+        return { name: "ready", page: event.page, paired: event.paired, offline: event.offline };
+      case "pageUnread":
+        if (state.name !== "reading") return state;
+        return { name: "error", kind: "pageUnread" };
+      case "send":
+        if (state.name !== "ready" || !state.paired || state.offline) return state;
+        return { name: "sending", page: state.page };
+      case "uploadSucceeded":
+        if (state.name !== "sending") return state;
+        return { name: "success", page: state.page };
+      case "uploadFailed":
+        if (state.name !== "sending") return state;
+        return { name: "error", kind: event.kind, page: state.page };
+      case "retry":
+        if (state.name !== "error") return state;
+        if (state.kind === "pageUnread" || state.kind === "notPaired" || state.kind === "authExpired" || !state.page) {
+          return { name: "reading" };
+        }
+        if (state.kind === "rateLimit" || state.kind === "unsupportedPage") return state;
+        return { name: "sending", page: state.page };
+      case "acknowledge":
+        if (state.name !== "error") return state;
+        if (!state.page) return { name: "idle" };
+        return {
+          name: "ready",
+          page: state.page,
+          paired: state.kind !== "notPaired" && state.kind !== "authExpired",
+          offline: false
+        };
+      case "done":
+        if (state.name !== "success") return state;
+        return { name: "idle" };
+      case "connectivity":
+        if (state.name !== "ready") return state;
+        return { ...state, offline: event.offline };
+      default:
+        return state;
+    }
+  }
+  var pairedFootnote = "Saves an EPUB to your reMarkable Inbox.";
+  var unpairedFootnote = "Pair your reMarkable in the Page to Paper app to continue.";
+  function popupCopy(state) {
+    switch (state.name) {
+      case "idle":
+        return empty("Reading this page\u2026");
+      case "reading":
+        return {
+          ...empty("Reading this page\u2026"),
+          announcement: "Reading this page\u2026"
+        };
+      case "ready":
+        return readyCopy(state);
+      case "sending":
+        return {
+          ...preview(state.page),
+          showMeta: true,
+          status: "Sending as EPUB\u2026",
+          detail: "Preparing EPUB\u2026",
+          footnote: pairedFootnote,
+          primaryLabel: "Sending as EPUB\u2026",
+          primaryAction: "send",
+          primaryDisabled: true,
+          busy: true,
+          announcement: "Sending as EPUB to Inbox"
+        };
+      case "success":
+        return {
+          ...preview(state.page),
+          showMeta: false,
+          status: "Sent",
+          detail: "Saved to Inbox as EPUB.",
+          footnote: "",
+          primaryLabel: "Done",
+          primaryAction: "done",
+          primaryDisabled: false,
+          busy: false,
+          announcement: "Sent to reMarkable Inbox as EPUB."
+        };
+      case "error":
+        return errorCopy(state.kind, state.page);
+      default:
+        return empty("");
+    }
+  }
+  function eventForUploadResult(result) {
+    if (result.ok) return { type: "uploadSucceeded" };
+    return { type: "uploadFailed", kind: errorKindForUploadFailure(result.message) };
+  }
+  function errorKindForUploadFailure(message) {
+    const text = message.toLowerCase();
+    if (text.includes("expir") || text.includes("sign in")) return "authExpired";
+    if (text.includes("not paired") || text.includes("pair")) return "notPaired";
+    if (text.includes("too many") || text.includes("rate")) return "rateLimit";
+    if (text.includes("offline") || text.includes("network") || text.includes("connection")) return "network";
+    if (text.includes("did not answer") || text.includes("unreadable") || text.includes("empty message")) {
+      return "appUnreachable";
+    }
+    if (text.includes("title") || text.includes("url") || text.includes("epub") || text.includes("unsupported")) {
+      return "unsupportedPage";
+    }
+    return "unknown";
+  }
+  function readyCopy(state) {
+    const offline = state.offline;
+    const paired = state.paired;
+    return {
+      ...preview(state.page),
+      showMeta: true,
+      status: offline ? "You\u2019re offline." : "",
+      detail: "",
+      footnote: paired ? pairedFootnote : unpairedFootnote,
+      primaryLabel: paired ? "Send" : "Pair device",
+      primaryAction: paired ? "send" : "open-app",
+      primaryDisabled: paired && offline,
+      openReason: paired ? void 0 : "required",
+      busy: false,
+      announcement: offline ? "You\u2019re offline." : state.page.title
+    };
+  }
+  function errorCopy(kind, page) {
+    const table = {
+      network: view("Couldn\u2019t send", "Check your connection and try again.", "Retry", "retry-send"),
+      notPaired: {
+        ...view("Pairing required", "Open Page to Paper and pair your reMarkable.", "Re-pair", "open-app"),
+        secondaryLabel: "Retry",
+        secondaryAction: "retry-read",
+        openReason: "required"
+      },
+      authExpired: {
+        ...view("Sign in again", "Your reMarkable session expired.", "Re-pair", "open-app"),
+        openReason: "expired"
+      },
+      rateLimit: view("Too many sends", "Please wait a moment and try again.", "OK", "dismiss"),
+      unsupportedPage: view("Can\u2019t send this page", "This page can\u2019t be saved as an EPUB.", "OK", "dismiss"),
+      appUnreachable: {
+        ...view("Couldn\u2019t reach the app", "Open Page to Paper, then try again.", "Retry", "retry-send"),
+        secondaryLabel: "Open app",
+        secondaryAction: "open-app",
+        openReason: "unreachable"
+      },
+      unknown: view("Something went wrong", "Please try again. If it keeps happening, try later.", "Retry", "retry-send"),
+      pageUnread: view(
+        "Could not read this page",
+        "Allow Page to Paper for the site in Safari, then try again.",
+        "Try again",
+        "retry-read"
+      )
+    };
+    return {
+      ...table[kind],
+      showPreview: Boolean(page),
+      previewTitle: page?.title,
+      hostname: page?.hostname,
+      showMeta: false
+    };
+  }
+  function view(status, detail, primaryLabel, primaryAction) {
+    return {
+      showPreview: false,
+      showMeta: false,
+      status,
+      detail,
+      footnote: "",
+      primaryLabel,
+      primaryAction,
+      primaryDisabled: false,
+      busy: false,
+      announcement: `${status}. ${detail}`
+    };
+  }
+  function preview(page) {
+    return { previewTitle: page.title, hostname: page.hostname, showPreview: true };
+  }
+  function empty(status) {
+    return {
+      showPreview: false,
+      showMeta: false,
+      status,
+      detail: "",
+      footnote: "",
+      primaryDisabled: true,
+      busy: false,
+      announcement: status
+    };
+  }
+
   // src/popup.ts
+  var phase = initialPopup();
+  var dismissTimer;
   function element(selector, ctor) {
     const node = document.querySelector(selector);
     if (!(node instanceof ctor)) {
@@ -183,38 +408,144 @@
     }
     return node;
   }
-  function render(result) {
-    const status = element("#status", HTMLElement);
-    const detail = element("#detail", HTMLElement);
-    const retry = element("#retry", HTMLButtonElement);
-    status.textContent = result.ok ? "Stub accepted" : "Not sent";
-    status.dataset.state = result.ok ? "ok" : "bad";
-    detail.textContent = result.message;
-    retry.hidden = false;
+  function nativeSend(application, body) {
+    return browser.runtime.sendNativeMessage(application, body);
   }
-  async function run() {
+  function render() {
+    const view2 = popupCopy(phase);
+    const preview2 = element("#preview", HTMLElement);
+    const title = element("#page-title", HTMLElement);
+    const host = element("#page-host", HTMLElement);
+    const meta = element("#meta", HTMLElement);
     const status = element("#status", HTMLElement);
     const detail = element("#detail", HTMLElement);
-    const retry = element("#retry", HTMLButtonElement);
-    retry.hidden = true;
-    status.textContent = "Reading this page\u2026";
-    status.dataset.state = "";
-    detail.textContent = "";
-    const result = await captureActiveArticle({
+    const footnote = element("#footnote", HTMLElement);
+    const primary = element("#primary", HTMLButtonElement);
+    const primaryLabel = element("#primary-label", HTMLElement);
+    const spinner = element("#spinner", HTMLElement);
+    const secondary = element("#secondary", HTMLButtonElement);
+    preview2.hidden = !view2.showPreview;
+    title.textContent = view2.previewTitle ?? "";
+    host.textContent = view2.hostname ?? "";
+    meta.hidden = !view2.showMeta;
+    status.hidden = !view2.status;
+    status.textContent = view2.status;
+    status.dataset.state = phase.name === "success" ? "ok" : phase.name === "error" || phase.name === "ready" && phase.offline ? "bad" : "";
+    detail.hidden = !view2.detail;
+    detail.textContent = view2.detail;
+    footnote.hidden = !view2.footnote;
+    footnote.textContent = view2.footnote;
+    primary.hidden = !view2.primaryLabel;
+    primary.disabled = view2.primaryDisabled || view2.busy;
+    primaryLabel.textContent = view2.primaryLabel ?? "";
+    spinner.hidden = !view2.busy;
+    secondary.hidden = !view2.secondaryLabel;
+    secondary.textContent = view2.secondaryLabel ?? "";
+    status.setAttribute("aria-label", view2.announcement);
+  }
+  function openApp(reason) {
+    assignPairingLink(window.location, reason);
+  }
+  async function loadPage() {
+    clearTimeout(dismissTimer);
+    phase = reducePopup(phase, { type: "open" });
+    render();
+    const read = await readActivePage({
       queryActiveTab: async () => {
         const tabs = await browser.tabs.query({ active: true, currentWindow: true });
         return tabs[0];
       },
-      extract: (tabId) => browser.tabs.sendMessage(tabId, { type: "extractArticle" }),
-      sendNative: (message) => sendToContainingApp(
-        message,
-        (application, body) => browser.runtime.sendNativeMessage(application, body)
-      )
+      extract: (tabId) => browser.tabs.sendMessage(tabId, { type: "extractArticle" })
     });
-    render(result);
+    if (!read.ok) {
+      phase = reducePopup(phase, { type: "pageUnread" });
+      render();
+      return;
+    }
+    const paired = await queryPaired(nativeSend);
+    phase = reducePopup(phase, {
+      type: "pageLoaded",
+      page: previewFromDraft(read.draft),
+      paired,
+      offline: navigator.onLine === false
+    });
+    render();
   }
-  element("#retry", HTMLButtonElement).addEventListener("click", () => {
-    void run();
+  async function performUpload() {
+    if (phase.name !== "sending") return;
+    const page = phase.page;
+    let event;
+    try {
+      event = eventForUploadResult(await uploadDraft(page.draft, nativeSend));
+    } catch {
+      event = eventForUploadResult({ ok: false, message: "The Page to Paper app did not answer." });
+    }
+    if (phase.name !== "sending") return;
+    phase = reducePopup(phase, event);
+    render();
+    if (phase.name === "success") {
+      dismissTimer = setTimeout(() => {
+        finish();
+      }, successDismissMs);
+    }
+  }
+  function finish() {
+    clearTimeout(dismissTimer);
+    phase = reducePopup(phase, { type: "done" });
+    render();
+    window.close();
+  }
+  function runAction(action, reason) {
+    if (!action) return;
+    if (action === "open-app" && reason) {
+      openApp(reason);
+      return;
+    }
+    if (action === "done") {
+      finish();
+      return;
+    }
+    if (action === "send") {
+      const next = reducePopup(phase, { type: "send" });
+      if (next.name !== "sending") return;
+      phase = next;
+      render();
+      void performUpload();
+      return;
+    }
+    if (action === "retry-send") {
+      const next = reducePopup(phase, { type: "retry" });
+      if (next.name !== "sending") return;
+      phase = next;
+      render();
+      void performUpload();
+      return;
+    }
+    if (action === "retry-read") {
+      void loadPage();
+      return;
+    }
+    if (action === "dismiss") {
+      phase = reducePopup(phase, { type: "acknowledge" });
+      render();
+    }
+  }
+  element("#primary", HTMLButtonElement).addEventListener("click", () => {
+    const view2 = popupCopy(phase);
+    if (view2.primaryDisabled) return;
+    runAction(view2.primaryAction, view2.openReason);
   });
-  void run();
+  element("#secondary", HTMLButtonElement).addEventListener("click", () => {
+    const view2 = popupCopy(phase);
+    runAction(view2.secondaryAction, view2.openReason);
+  });
+  window.addEventListener("online", () => {
+    phase = reducePopup(phase, { type: "connectivity", offline: false });
+    render();
+  });
+  window.addEventListener("offline", () => {
+    phase = reducePopup(phase, { type: "connectivity", offline: true });
+    render();
+  });
+  void loadPage();
 })();

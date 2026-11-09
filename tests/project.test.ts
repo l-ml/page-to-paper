@@ -13,7 +13,11 @@ describe("extension sources", () => {
     const content = read("src/content.ts");
     const messaging = read("src/messaging.ts");
 
-    expect(popup).toContain("sendToContainingApp");
+    expect(read("src/capture.ts")).toContain("sendToContainingApp");
+    expect(popup).toContain("assignPairingLink");
+    expect(popup).toContain("uploadDraft");
+    expect(popup).toContain("window.location");
+    expect(popup).not.toContain("NSExtensionContext");
     expect(popup).not.toContain("localStorage");
     expect(popup).not.toContain("browser.storage");
     expect(background).not.toContain("sendNativeMessage");
@@ -75,6 +79,9 @@ describe("checked-in project files", () => {
       expect(source).toContain("Generated from src/ by esbuild.");
       expect(source).not.toMatch(/^\s*import\s/m);
     }
-    expect(read("PageToPaper/Extension/Resources/popup.js")).toContain("uploadArticle");
+    const popupJs = read("PageToPaper/Extension/Resources/popup.js");
+    expect(popupJs).toContain("uploadArticle");
+    expect(popupJs).toContain("pagetopaper://pair");
+    expect(popupJs).not.toContain("NSExtensionContext");
   });
 });

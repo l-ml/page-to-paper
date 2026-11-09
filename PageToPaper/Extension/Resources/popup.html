@@ -9,10 +9,24 @@
   <body>
     <main>
       <h1>Page to Paper</h1>
-      <p id="status">Reading this page…</p>
-      <p id="detail"></p>
-      <button id="retry" type="button" hidden>Try again</button>
-      <p class="footnote">Scaffold only. The unofficial cloud API is not called.</p>
+      <section id="preview" hidden>
+        <p id="page-title"></p>
+        <p id="page-host"></p>
+      </section>
+      <div id="meta" class="meta" hidden>
+        <div><span>Destination</span><span>Inbox</span></div>
+        <div><span>Format</span><span>EPUB</span></div>
+      </div>
+      <p id="status" role="status" aria-live="polite">Reading this page…</p>
+      <p id="detail" hidden></p>
+      <div class="actions">
+        <button id="primary" type="button" hidden>
+          <span id="spinner" class="spinner" hidden></span>
+          <span id="primary-label"></span>
+        </button>
+        <button id="secondary" type="button" class="secondary" hidden></button>
+      </div>
+      <p id="footnote" class="footnote" hidden></p>
     </main>
     <script src="popup.js"></script>
   </body>

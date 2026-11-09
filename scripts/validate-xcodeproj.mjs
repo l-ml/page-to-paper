@@ -251,7 +251,7 @@ check(handlerFile && extSources.has(handlerFile.id), "handler compiled into the 
 check(handlerFile && !appSources.has(handlerFile.id), "handler stays out of the app target");
 
 const sharedFiles = groupFiles.filter((file) => file.relative.startsWith(`PageToPaper${path.sep}Shared${path.sep}`));
-check(sharedFiles.length === 8, `expected 8 shared files, found ${sharedFiles.length}`);
+check(sharedFiles.length === 9, `expected 9 shared files, found ${sharedFiles.length}`);
 for (const file of sharedFiles) {
   check(appSources.has(file.id) && extSources.has(file.id), `${file.relative} compiled into both targets`);
 }

@@ -2,12 +2,12 @@ import Foundation
 import Security
 
 enum TokenStoreError: Error, Equatable {
-    case missingAccessGroup
     case unexpectedStatus(OSStatus)
 }
 
-/// Shared Keychain slot for a future reMarkable device token.
-/// The scaffold never writes a token. JavaScript cannot read this store.
+/// Keychain slot for the stub device token. JavaScript cannot read this store.
+/// When the shared access group is not signed yet, the item stays in the app’s local keychain
+/// so Pair and Sign out can change what the screens show. It is not shared with the extension until the group exists.
 struct TokenStore {
     static let service = "com.example.pagetopaper.device-token"
     static let account = "remarkable-device-token"
@@ -20,7 +20,7 @@ struct TokenStore {
 
     func save(_ data: Data) throws {
         try delete()
-        var query = try baseQuery()
+        var query = baseQuery()
         query[kSecValueData as String] = data
         query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         let status = SecItemAdd(query as CFDictionary, nil)
@@ -30,7 +30,7 @@ struct TokenStore {
     }
 
     func load() throws -> Data? {
-        var query = try baseQuery()
+        var query = baseQuery()
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var item: CFTypeRef?
@@ -45,21 +45,21 @@ struct TokenStore {
     }
 
     func delete() throws {
-        let status = SecItemDelete(try baseQuery() as CFDictionary)
+        let status = SecItemDelete(baseQuery() as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw TokenStoreError.unexpectedStatus(status)
         }
     }
 
-    private func baseQuery() throws -> [String: Any] {
-        guard let accessGroup, !accessGroup.isEmpty else {
-            throw TokenStoreError.missingAccessGroup
-        }
-        return [
+    private func baseQuery() -> [String: Any] {
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.service,
             kSecAttrAccount as String: Self.account,
-            kSecAttrAccessGroup as String: accessGroup,
         ]
+        if let accessGroup, !accessGroup.isEmpty {
+            query[kSecAttrAccessGroup as String] = accessGroup
+        }
+        return query
     }
 }

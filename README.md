@@ -2,7 +2,7 @@
 
 Page to Paper is an iOS Safari web extension in the style of Safari Reader. From the toolbar it reads the current page and, in a later version, will build an EPUB and upload it to the reMarkable Cloud Inbox.
 
-> **Unofficial API.** Page to Paper is not affiliated with reMarkable. Uploading would use reMarkable’s unofficial Cloud API, which can change or be withdrawn without notice. This repository is a scaffold: it does not call that API, does not pair an account, and does not build an EPUB.
+> **Unofficial API.** Page to Paper is not affiliated with reMarkable. Uploading would use reMarkable’s unofficial Cloud API, which can change or be withdrawn without notice. This repository does not call that API and does not build an EPUB. Pairing stores an 8-character code in the Keychain as a stand-in token.
 
 v1 is the Safari extension only. There is no Share Sheet and no folder picker. The intended distribution is TestFlight, and nothing in this repo submits a build.
 
@@ -10,12 +10,13 @@ v1 is the Safari extension only. There is no Share Sheet and no folder picker. T
 
 The happy path is wired, and every network and file step is a stub.
 
-1. The popup asks the content script for the page title, URL, and an optional byline.
-2. The popup checks that shape and calls `browser.runtime.sendNativeMessage`.
-3. `SafariWebExtensionHandler` returns an `UploadResult`.
-4. The popup shows success or failure.
+1. The popup reads the page title and host. It does not upload on open.
+2. The confirm screen shows Destination Inbox, Format EPUB, and Send. If the app is not paired, the button is Pair device. If the device is offline, Send is disabled.
+3. Send calls `SafariWebExtensionHandler`. A stub `ok: true` is shown as Sent. Failures use the inline error states.
+4. Done closes the popup. It also closes about 1.2 seconds after success.
+5. Pair device, Re-pair, and Open app set `window.location.href` to `pagetopaper://pair`. The containing app opens Pairing from that URL.
 
-A valid article gets `ok: true` with a message that nothing was uploaded. A bad message gets `ok: false`.
+A valid article still gets `ok: true` from the handler, which does not upload anything. A bad message gets `ok: false`.
 
 JavaScript never holds tokens. Preferences go in an App Group `UserDefaults` suite. Secrets, when pairing exists, go in a shared Keychain access group. The containing app cannot push work into the extension; the extension always starts the native call.
 
@@ -30,7 +31,7 @@ PageToPaper/Shared/          Swift compiled into both targets
 PageToPaper.xcodeproj        Checked-in Xcode project
 ```
 
-Shared Swift types are `ArticleDraft`, `UploadResult`, `RemarkableAuth`, `RemarkableCloudClient`, `TokenStore`, and `ArticleConverter`. `TokenStore` talks to the Keychain and is unused by the stub upload. `ArticleConverter.makeEpub` returns nil.
+Shared Swift types are `ArticleDraft`, `UploadResult`, `RemarkableAuth`, `RemarkableCloudClient`, `TokenStore`, `PairingCode`, and `ArticleConverter`. `TokenStore` keeps the pairing stand-in in the Keychain. The stub upload does not read it. `ArticleConverter.makeEpub` returns nil.
 
 ## Placeholder identifiers
 
@@ -91,8 +92,12 @@ Extension JavaScript and the native handler share one shape. No token fields are
 | --- | --- |
 | Popup to content script | `{ "type": "extractArticle" }` |
 | Content script to popup | `{ "type": "articleDraft", "title", "url", "byline"? }` |
-| Popup to the app | `{ "type": "uploadArticle", "draft": { "title", "url", "html"?, "byline"? } }` |
+| Popup to the app, before Send | `{ "type": "pairingStatus" }` |
+| App to the popup | `{ "paired": true/false }` |
+| Popup to the app, after Send | `{ "type": "uploadArticle", "draft": { "title", "url", "html"?, "byline"? } }` |
 | App to the popup | `{ "ok", "message", "documentId"? }` |
+
+The pairing code is 8 letters or digits from `https://my.remarkable.com/device/browser/connect`. The app trims it, lowercases it, and strips spaces and hyphens before checking `^[a-z0-9]{8}$`. Pair stays disabled until that matches. The app does not call the site.
 
 The native call uses `browser.runtime.sendNativeMessage("application", message)`. Safari routes that to this extension’s handler. `"application"` is not a bundle id and not a secret.
 

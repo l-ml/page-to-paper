@@ -32,6 +32,9 @@ enum ExtensionMessageRouter {
         if MessageSecrets.containsSecret(body) {
             return failure("Refusing a message that carries secrets.")
         }
+        if (body["type"] as? String) == "pairingStatus" {
+            return ["paired": RemarkableAuth().isPaired()]
+        }
         guard (body["type"] as? String) == "uploadArticle" else {
             return failure("Unsupported message.")
         }

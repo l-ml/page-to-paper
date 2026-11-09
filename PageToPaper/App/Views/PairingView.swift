@@ -1,22 +1,127 @@
 import SwiftUI
 
 struct PairingView: View {
+    @Binding var reason: PairingReason?
+
+    @Environment(\.scenePhase) private var scenePhase
     @State private var paired = false
+    @State private var code = ""
+    @State private var showsError = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Label(paired ? "Paired" : "Not paired", systemImage: paired ? "checkmark.circle" : "link")
-                .font(.title2)
-            Text("Device-token pairing with reMarkable Cloud is not implemented. This build never stores a token, and the extension cannot see secrets.")
-            Text("When pairing exists, the device token will live in the shared Keychain access group. It will not live in extension JavaScript or in UserDefaults.")
-                .foregroundStyle(.secondary)
-            Spacer()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                status
+                if paired {
+                    Text("This device can send EPUBs to your reMarkable Inbox.")
+                        .font(.body)
+                    Button(action: signOut) {
+                        Text("Sign out")
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .buttonStyle(.bordered)
+                    .foregroundColor(.red)
+                    Button(action: repair) {
+                        Text("Re-pair")
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .buttonStyle(.bordered)
+                } else {
+                    Text("Enter the one-time code from your reMarkable account to connect Cloud upload.")
+                        .font(.body)
+                    Text("Get an 8-character code at my.remarkable.com/device/browser/connect. It is single use and expires in about 5 minutes.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                    TextField("Enter pairing code", text: $code)
+                        .textFieldStyle(.roundedBorder)
+                        .keyboardType(.asciiCapable)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                        .frame(minHeight: 44)
+                    Button(action: pair) {
+                        Text("Pair")
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!PairingCode.isValid(code))
+                    if showsError {
+                        Text("Couldn’t pair. Codes are single use and expire in about 5 minutes. Enter a fresh code and try again.")
+                            .font(.footnote)
+                            .foregroundColor(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Text("When connected, the device token is stored in the Keychain — never in extension JavaScript.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(24)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .navigationTitle("Pairing")
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            paired = RemarkableAuth().isPaired()
+            refresh()
+            noteReason()
         }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active {
+                refresh()
+            }
+        }
+        .onChange(of: reason) { _ in
+            noteReason()
+        }
+        .onChange(of: code) { _ in
+            if showsError {
+                showsError = false
+            }
+        }
+    }
+
+    private var status: some View {
+        Label(paired ? "Connected" : "Not paired", systemImage: paired ? "checkmark.circle" : "link")
+            .font(.title2)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(paired ? "Connected" : "Not paired")
+    }
+
+    private func refresh() {
+        paired = RemarkableAuth().isPaired()
+        if paired {
+            showsError = false
+        }
+    }
+
+    private func noteReason() {
+        if reason == .expired && !paired {
+            showsError = true
+        }
+    }
+
+    private func pair() {
+        if RemarkableAuth().pair(withCode: code) {
+            code = ""
+            showsError = false
+            reason = nil
+            refresh()
+        } else {
+            showsError = true
+        }
+    }
+
+    private func signOut() {
+        RemarkableAuth().signOut()
+        code = ""
+        showsError = false
+        reason = nil
+        refresh()
+    }
+
+    private func repair() {
+        RemarkableAuth().signOut()
+        code = ""
+        showsError = false
+        reason = nil
+        refresh()
     }
 }

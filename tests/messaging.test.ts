@@ -7,6 +7,7 @@ import {
   limits,
   messageTypes,
   parseArticleDraft,
+  parsePairingStatus,
   parseUploadResult,
   sendToContainingApp,
   MessageShapeError,
@@ -114,6 +115,14 @@ describe("parseUploadResult", () => {
       ok: false,
       message: "The app returned a message that carries secrets.",
     });
+  });
+});
+
+describe("parsePairingStatus", () => {
+  it("accepts a boolean and rejects secrets", () => {
+    expect(parsePairingStatus({ paired: false })).toEqual({ paired: false });
+    expect(() => parsePairingStatus({ paired: true, token: "x" })).toThrow(/secrets/);
+    expect(() => parsePairingStatus({ ok: true })).toThrow(MessageShapeError);
   });
 });
 

@@ -15,7 +15,7 @@ enum AppPreferences {
     }
 
     /// Team-prefixed Keychain access group, read from the processed Info.plist.
-    /// Nil when the placeholder has not been signed, so TokenStore does not write.
+    /// Nil when the placeholder has not been signed. TokenStore then keeps the stub token in the app-local keychain.
     static var keychainAccessGroup: String? {
         guard let configured = Bundle.main.object(forInfoDictionaryKey: "PageToPaperKeychainAccessGroup") as? String else {
             return nil

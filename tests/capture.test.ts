@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { captureActiveArticle } from "../src/capture";
+import { queryPaired, readActivePage, uploadDraft } from "../src/capture";
 
 const extracted = {
   type: "articleDraft",
@@ -8,64 +8,58 @@ const extracted = {
   byline: "Sam",
 };
 
-describe("captureActiveArticle", () => {
-  it("sends the extracted draft to the app and returns the stub result", async () => {
-    const sendNative = vi.fn(async () => ({
-      ok: true,
-      message: "Stub accepted. Nothing was uploaded.",
-    }));
-    const result = await captureActiveArticle({
+describe("readActivePage", () => {
+  it("returns a draft and has no native upload", async () => {
+    const result = await readActivePage({
       queryActiveTab: async () => ({ id: 7 }),
       extract: async () => extracted,
-      sendNative,
     });
-
-    expect(sendNative).toHaveBeenCalledOnce();
-    expect(sendNative).toHaveBeenCalledWith({
-      type: "uploadArticle",
-      draft: {
-        title: "Dispatch",
-        url: "https://news.example/dispatch",
-        byline: "Sam",
-      },
+    expect(result).toEqual({
+      ok: true,
+      draft: { title: "Dispatch", url: "https://news.example/dispatch", byline: "Sam" },
     });
-    expect(result).toEqual({ ok: true, message: "Stub accepted. Nothing was uploaded." });
   });
 
-  it("does not call the app when the page cannot be read or the draft is invalid", async () => {
-    const sendNative = vi.fn();
-    const unread = await captureActiveArticle({
+  it("fails closed when the page cannot be read", async () => {
+    const unread = await readActivePage({
       queryActiveTab: async () => ({ id: 3 }),
       extract: async () => {
         throw new Error("Receiving end does not exist.");
       },
-      sendNative,
     });
-    const invalid = await captureActiveArticle({
+    const invalid = await readActivePage({
       queryActiveTab: async () => ({ id: 3 }),
       extract: async () => ({ type: "articleDraft", title: "Nope", url: "file:///tmp/a" }),
-      sendNative,
     });
-    const noTab = await captureActiveArticle({
-      queryActiveTab: async () => undefined,
-      extract: async () => extracted,
-      sendNative,
-    });
+    expect(unread).toEqual({ ok: false });
+    expect(invalid).toEqual({ ok: false });
+  });
+});
 
-    expect(sendNative).not.toHaveBeenCalled();
-    expect(unread.ok).toBe(false);
-    expect(invalid.ok).toBe(false);
-    expect(invalid.message).toMatch(/http or https/);
-    expect(noTab).toEqual({ ok: false, message: "No active tab." });
+describe("native calls", () => {
+  it("asks only for pairing status while preparing", async () => {
+    const sendNative = vi.fn(async () => ({ paired: true }));
+    await expect(queryPaired(sendNative)).resolves.toBe(true);
+    expect(sendNative).toHaveBeenCalledWith("application", { type: "pairingStatus" });
   });
 
-  it("reports a failure when the native call does not answer", async () => {
-    const result = await captureActiveArticle({
-      queryActiveTab: async () => ({ id: 1 }),
-      extract: async () => extracted,
-      sendNative: async () => {
-        throw new Error("disconnected");
-      },
+  it("uploads only when uploadDraft is called", async () => {
+    const sendNative = vi.fn(async () => ({ ok: true, message: "Stub accepted. Nothing was uploaded." }));
+    const result = await uploadDraft(
+      { title: "Dispatch", url: "https://news.example/dispatch", byline: "Sam" },
+      sendNative,
+    );
+    expect(sendNative).toHaveBeenCalledOnce();
+    expect(sendNative).toHaveBeenCalledWith("application", {
+      type: "uploadArticle",
+      draft: { title: "Dispatch", url: "https://news.example/dispatch", byline: "Sam" },
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("reports when the app does not answer", async () => {
+    const result = await uploadDraft({ title: "Dispatch", url: "https://news.example/dispatch" }, async () => {
+      throw new Error("disconnected");
     });
     expect(result).toEqual({ ok: false, message: "The Page to Paper app did not answer." });
   });

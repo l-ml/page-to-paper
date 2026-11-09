@@ -5,7 +5,8 @@
   var messageTypes = {
     extractArticle: "extractArticle",
     articleDraft: "articleDraft",
-    uploadArticle: "uploadArticle"
+    uploadArticle: "uploadArticle",
+    pairingStatus: "pairingStatus"
   };
   var forbiddenSecretKeys = [
     "token",

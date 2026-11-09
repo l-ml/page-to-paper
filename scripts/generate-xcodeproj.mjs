@@ -76,6 +76,7 @@ const sharedNames = [
   "ArticleConverter.swift",
   "ArticleDraft.swift",
   "ExtensionMessageRouter.swift",
+  "PairingCode.swift",
   "RemarkableAuth.swift",
   "RemarkableCloudClient.swift",
   "TokenStore.swift",

@@ -11,6 +11,7 @@ export const messageTypes = {
   extractArticle: "extractArticle",
   articleDraft: "articleDraft",
   uploadArticle: "uploadArticle",
+  pairingStatus: "pairingStatus",
 } as const;
 
 /** Exact keys that must never appear in an extension message. */
@@ -178,6 +179,16 @@ export function parseUploadResult(value: unknown): UploadResult {
     result.documentId = documentId;
   }
   return result;
+}
+
+export function parsePairingStatus(value: unknown): { paired: boolean } {
+  if (findForbiddenSecretKey(value)) {
+    throw new MessageShapeError("Messages must not carry secrets.");
+  }
+  if (!isRecord(value) || typeof value.paired !== "boolean") {
+    throw new MessageShapeError("Pairing status is unreadable.");
+  }
+  return { paired: value.paired };
 }
 
 export function sendToContainingApp(
