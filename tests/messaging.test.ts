@@ -64,6 +64,19 @@ describe("parseArticleDraft", () => {
     );
   });
 
+  it("rejects secret aliases in any casing", () => {
+    const aliases = ["Token", "PASSWORD", "Secret", "access_token", "Access-Token", "AUTHORIZATION", "Bearer"];
+    for (const key of aliases) {
+      expect(findForbiddenSecretKey({ [key]: "x" })).toBe(key);
+      expect(() => parseArticleDraft({ title: "Note", url: "https://example.com", [key]: "x" })).toThrow(/secrets/);
+      expect(parseUploadResult({ ok: true, message: "Hi", [key]: "x" })).toEqual({
+        ok: false,
+        message: "The app returned a message that carries secrets.",
+      });
+    }
+    expect(findForbiddenSecretKey({ tokenizer: "no", title: "Note" })).toBeNull();
+  });
+
   it("rejects a non-draft message type", () => {
     expect(() => parseArticleDraft({ type: "uploadArticle", title: "Note", url: "https://example.com" })).toThrow(
       /Unexpected message type/,

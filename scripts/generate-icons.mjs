@@ -24,26 +24,35 @@ function chunk(type, data) {
   return Buffer.concat([length, body, crc]);
 }
 
-function png(size, paint) {
-  const stride = size * 4 + 1;
+function png(size, paint, opaque) {
+  const channels = opaque ? 3 : 4;
+  const stride = size * channels + 1;
   const raw = Buffer.alloc(stride * size);
+  const backdrop = [30, 42, 46];
   for (let y = 0; y < size; y += 1) {
     const row = y * stride;
     raw[row] = 0;
     for (let x = 0; x < size; x += 1) {
       const [r, g, b, a] = paint(x, y, size);
-      const index = row + 1 + x * 4;
-      raw[index] = r;
-      raw[index + 1] = g;
-      raw[index + 2] = b;
-      raw[index + 3] = a;
+      const index = row + 1 + x * channels;
+      if (opaque) {
+        const alpha = a / 255;
+        raw[index] = Math.round(r * alpha + backdrop[0] * (1 - alpha));
+        raw[index + 1] = Math.round(g * alpha + backdrop[1] * (1 - alpha));
+        raw[index + 2] = Math.round(b * alpha + backdrop[2] * (1 - alpha));
+      } else {
+        raw[index] = r;
+        raw[index + 1] = g;
+        raw[index + 2] = b;
+        raw[index + 3] = a;
+      }
     }
   }
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(size, 0);
   ihdr.writeUInt32BE(size, 4);
   ihdr[8] = 8;
-  ihdr[9] = 6;
+  ihdr[9] = opaque ? 2 : 6;
   return Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
     chunk("IHDR", ihdr),
@@ -87,7 +96,10 @@ function paint(x, y, size, transparentBackdrop) {
 }
 
 function write(file, size, transparentBackdrop) {
-  fs.writeFileSync(file, png(size, (x, y, canvas) => paint(x, y, canvas, transparentBackdrop)));
+  fs.writeFileSync(
+    file,
+    png(size, (x, y, canvas) => paint(x, y, canvas, transparentBackdrop), !transparentBackdrop),
+  );
 }
 
 const resources = path.join(root, "PageToPaper/Extension/Resources");

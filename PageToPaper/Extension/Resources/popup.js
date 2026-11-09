@@ -28,12 +28,17 @@
   };
   var forbiddenSecretKeys = [
     "token",
-    "accessToken",
-    "deviceToken",
-    "refreshToken",
     "password",
-    "secret"
+    "secret",
+    "accesstoken",
+    "authorization",
+    "bearer",
+    "devicetoken",
+    "refreshtoken"
   ];
+  function normalizeSecretKey(key) {
+    return key.toLowerCase().replace(/[_-]/g, "");
+  }
   var containingAppNativeId = "application";
   var MessageShapeError = class extends Error {
     constructor(message) {
@@ -54,7 +59,7 @@
     }
     if (!isRecord(value)) return null;
     for (const [key, child] of Object.entries(value)) {
-      if (forbiddenSecretKeys.includes(key)) return key;
+      if (forbiddenSecretKeys.includes(normalizeSecretKey(key))) return key;
       const found = findForbiddenSecretKey(child);
       if (found) return found;
     }

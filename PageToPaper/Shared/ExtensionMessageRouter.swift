@@ -1,18 +1,25 @@
 import Foundation
 
 enum MessageSecrets {
-    static let keys: Set<String> = [
+    /// Normalized like `normalizeSecretKey` in src/messaging.ts: lowercased, `_` and `-` removed.
+    static let normalizedKeys: Set<String> = [
         "token",
-        "accessToken",
-        "deviceToken",
-        "refreshToken",
         "password",
         "secret",
+        "accesstoken",
+        "authorization",
+        "bearer",
+        "devicetoken",
+        "refreshtoken",
     ]
+
+    static func normalize(_ key: String) -> String {
+        String(key.lowercased().filter { $0 != "_" && $0 != "-" })
+    }
 
     static func containsSecret(_ value: Any) -> Bool {
         if let dictionary = value as? [String: Any] {
-            for (key, child) in dictionary where keys.contains(key) || containsSecret(child) {
+            for (key, child) in dictionary where normalizedKeys.contains(normalize(key)) || containsSecret(child) {
                 return true
             }
             return false

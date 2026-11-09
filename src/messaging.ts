@@ -14,15 +14,24 @@ export const messageTypes = {
   pairingStatus: "pairingStatus",
 } as const;
 
-/** Exact keys that must never appear in an extension message. */
+/**
+ * Secret key names after lowercasing and removing "_" and "-".
+ * Keep in sync with MessageSecrets in ExtensionMessageRouter.swift.
+ */
 export const forbiddenSecretKeys = [
   "token",
-  "accessToken",
-  "deviceToken",
-  "refreshToken",
   "password",
   "secret",
+  "accesstoken",
+  "authorization",
+  "bearer",
+  "devicetoken",
+  "refreshtoken",
 ] as const;
+
+export function normalizeSecretKey(key: string): string {
+  return key.toLowerCase().replace(/[_-]/g, "");
+}
 
 /**
  * Safari delivers this string to the containing app's SafariWebExtensionHandler.
@@ -69,7 +78,7 @@ export function findForbiddenSecretKey(value: unknown): string | null {
   }
   if (!isRecord(value)) return null;
   for (const [key, child] of Object.entries(value)) {
-    if ((forbiddenSecretKeys as readonly string[]).includes(key)) return key;
+    if ((forbiddenSecretKeys as readonly string[]).includes(normalizeSecretKey(key))) return key;
     const found = findForbiddenSecretKey(child);
     if (found) return found;
   }

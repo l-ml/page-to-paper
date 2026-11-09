@@ -6,7 +6,7 @@
   "description": "Scaffold for the Page to Paper iOS Safari web extension.",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "scripts": {
     "build": "node esbuild.config.mjs",

@@ -31,7 +31,7 @@ PageToPaper/Shared/          Swift compiled into both targets
 PageToPaper.xcodeproj        Checked-in Xcode project
 ```
 
-Shared Swift types are `ArticleDraft`, `UploadResult`, `RemarkableAuth`, `RemarkableCloudClient`, `TokenStore`, `PairingCode`, and `ArticleConverter`. `TokenStore` keeps the pairing stand-in in the Keychain. The stub upload does not read it. `ArticleConverter.makeEpub` returns nil.
+Shared Swift types are `AppPreferences`, `ArticleDraft`, `ArticleConverter`, `ExtensionMessageRouter`, `PairingCode`, `RemarkableAuth`, `RemarkableCloudClient`, `TokenStore`, and `UploadResult`. `TokenStore` keeps the pairing stand-in in the Keychain. The stub upload does not read it. `ArticleConverter.makeEpub` returns nil.
 
 ## Placeholder identifiers
 
@@ -48,7 +48,7 @@ Signing is Automatic, and no development team is set. Select a team in Xcode aft
 
 ## Requirements
 
-- Node.js 18 or newer, for the extension scripts
+- Node.js 22 or newer, for the extension scripts (`.nvmrc` pins 22; `import.meta.dirname` and Vitest 5 are not supported on Node 18)
 - Xcode 15 or newer, for the iOS app
 - iOS 15.4 or newer
 

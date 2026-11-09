@@ -37,11 +37,14 @@ describe("extension sources", () => {
     expect(swift).toContain("static let byline = 200");
     expect(swift).toContain("static let html = 500_000");
     expect(swift).toContain("static let url = 2_000");
-    for (const key of ["token", "accessToken", "deviceToken", "refreshToken", "password", "secret"]) {
+    for (const key of ["token", "password", "secret", "accesstoken", "authorization", "bearer", "devicetoken", "refreshtoken"]) {
       expect(secrets).toContain(`"${key}"`);
     }
+    expect(secrets).toContain("lowercased()");
     expect(read("PageToPaper/Shared/RemarkableCloudClient.swift")).toContain("Nothing was uploaded");
-    expect(read("PageToPaper/Extension/SafariWebExtensionHandler.swift")).toContain("SFExtensionMessageKey");
+    const handler = read("PageToPaper/Extension/SafariWebExtensionHandler.swift");
+    expect(handler).toContain('static let key = "message"');
+    expect(handler).not.toContain("SFExtensionMessageKey");
     expect(read("PageToPaper/Extension/SafariWebExtensionHandler.swift")).not.toContain("URLSession");
   });
 });
