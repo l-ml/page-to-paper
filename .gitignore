@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.DS_Store
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.hmap
+*.ipa
+*.dSYM
+.swiftpm/
+.idea/
+.vscode/
+*.moved-aside
+*.xcscmblueprint
