@@ -9,7 +9,8 @@ struct RemarkableCloudClient {
         return UploadResult(
             ok: true,
             message: "Stub accepted. Nothing was uploaded; EPUB conversion and reMarkable Cloud are not implemented.",
-            documentId: nil
+            documentId: nil,
+            implemented: false
         )
     }
 }

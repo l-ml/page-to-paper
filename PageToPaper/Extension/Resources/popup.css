@@ -5,6 +5,8 @@
   --muted: #5c6568;
   --line: #ddd4c6;
   --accent: #8c3a2f;
+  --button: #8c3a2f;
+  --on-button: #ffffff;
   --ok: #1f6b4a;
   --bad: #8c3a2f;
 }
@@ -15,9 +17,11 @@
     --ink: #f4efe6;
     --muted: #b7b1a6;
     --line: #343c3f;
-    --accent: #e0a598;
+    --accent: #f3c7bf;
+    --button: #8c3a2f;
+    --on-button: #ffffff;
     --ok: #8dccb0;
-    --bad: #e0a598;
+    --bad: #f3c7bf;
   }
 }
 
@@ -31,7 +35,7 @@ body {
 body {
   background: var(--paper);
   color: var(--ink);
-  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 1rem/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 main {
@@ -39,18 +43,28 @@ main {
 }
 
 h1 {
-  margin: 0 0 12px;
+  margin: 0 0 0.75rem;
   font-family: "Iowan Old Style", Palatino, Georgia, serif;
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 
 #preview {
-  margin: 0 0 12px;
-  padding: 10px 12px;
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin: 0 0 0.75rem;
+  padding: 0.625rem 0.75rem;
   border: 1px solid var(--line);
   border-radius: 12px;
+}
+
+.mark {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: none;
+  margin-top: 0.15rem;
 }
 
 #page-title {
@@ -63,9 +77,9 @@ h1 {
 }
 
 #page-host {
-  margin: 4px 0 0;
+  margin: 0.25rem 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .meta div {
@@ -106,13 +120,13 @@ h1 {
 }
 
 button {
-  min-height: 44px;
+  min-height: 2.75rem;
   width: 100%;
   border: 0;
   border-radius: 12px;
-  padding: 10px 12px;
-  background: var(--accent);
-  color: #fff;
+  padding: 0.625rem 0.75rem;
+  background: var(--button);
+  color: var(--on-button);
   font: inherit;
   font-weight: 600;
 }

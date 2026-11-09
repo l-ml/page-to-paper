@@ -52,10 +52,22 @@ describe("reducePopup", () => {
     expect(reducePopup(ready({ offline: true }), { type: "send" }).name).toBe("ready");
   });
 
-  it("maps a stub success only after sending, and a failure into an error", () => {
+  it("keeps success for a real upload and never treats a stub reply as sent", () => {
     const sending = reducePopup(ready(), { type: "send" });
-    expect(reducePopup(sending, eventForUploadResult({ ok: true, message: "Stub accepted." }))).toMatchObject({
-      name: "success",
+    const stub = eventForUploadResult({
+      ok: true,
+      message: "Stub accepted. Nothing was uploaded; EPUB conversion and reMarkable Cloud are not implemented.",
+      implemented: false,
+    });
+    expect(stub.type).toBe("uploadUnavailable");
+    expect(reducePopup(sending, stub).name).toBe("unavailable");
+    expect(reducePopup(sending, eventForUploadResult({ ok: true, message: "Saved." })).name).toBe("unavailable");
+    const real = reducePopup(sending, eventForUploadResult({ ok: true, message: "Uploaded.", implemented: true }));
+    expect(real.name).toBe("success");
+    expect(popupCopy(real)).toMatchObject({ status: "Sent", detail: "Saved to Inbox as EPUB." });
+    expect(popupCopy({ name: "unavailable", page })).toMatchObject({
+      status: "Not available yet",
+      detail: "Sending to your reMarkable isn't implemented in this build.",
     });
     expect(
       reducePopup(sending, eventForUploadResult({ ok: false, message: "The article needs a title and an http(s) URL." })),
@@ -168,6 +180,10 @@ describe("popupCopy", () => {
     }
     expect(popupCopy({ name: "error", kind: "appUnreachable", page }).secondaryLabel).toBe("Open app");
     expect(popupCopy({ name: "error", kind: "notPaired", page }).secondaryLabel).toBe("Retry");
+    expect(popupCopy({ name: "error", kind: "authExpired" }).clearPairing).toBe(true);
+    expect(popupCopy({ name: "error", kind: "notPaired" }).clearPairing).toBe(true);
+    expect(popupCopy({ name: "error", kind: "appUnreachable" }).clearPairing).toBeUndefined();
+    expect(popupCopy(ready({ paired: false })).clearPairing).toBeUndefined();
   });
 });
 

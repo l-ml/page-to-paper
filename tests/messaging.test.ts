@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildUploadRequest,
   containingAppNativeId,
@@ -74,7 +74,17 @@ describe("parseArticleDraft", () => {
         message: "The app returned a message that carries secrets.",
       });
     }
-    expect(findForbiddenSecretKey({ tokenizer: "no", title: "Note" })).toBeNull();
+    expect(findForbiddenSecretKey({ title: "Note", paired: true })).toBeNull();
+  });
+
+  it("rejects trailing spaces, NFKC lookalikes, and api key aliases", () => {
+    const fullwidthToken = "\uFF34\uFF4F\uFF4B\uFF45\uFF4E";
+    for (const key of ["token ", " Token", fullwidthToken, "apiKey", "api_key", "Token"]) {
+      expect(findForbiddenSecretKey({ [key]: "x" }), key).toBe(key);
+      expect(parseUploadResult({ ok: true, message: "Hi", [key]: "x" }).ok).toBe(false);
+    }
+    expect(findForbiddenSecretKey({ deviceToken: "x" })).toBe("deviceToken");
+    expect(findForbiddenSecretKey({ refresh_token: "x" })).toBe("refresh_token");
   });
 
   it("rejects a non-draft message type", () => {
@@ -156,5 +166,11 @@ describe("extract and native addressing", () => {
     expect(containingAppNativeId).toBe("application");
     expect(calls).toEqual([["application", { type: "uploadArticle" }]]);
     expect(response).toEqual({ ok: true, message: "Stub accepted." });
+  });
+
+  it("does not forward a message that carries a Token key", async () => {
+    const send = vi.fn();
+    await expect(sendToContainingApp({ type: "uploadArticle", Token: "x" }, send)).rejects.toThrow(/secrets/);
+    expect(send).not.toHaveBeenCalled();
   });
 });

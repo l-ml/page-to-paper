@@ -1,5 +1,5 @@
-import { assignPairingLink, type PairingDeepLinkReason } from "./appLink";
-import { queryPaired, readActivePage, uploadDraft } from "./capture";
+import { assignPairingLink, pairingDeepLink, type PairingDeepLinkReason } from "./appLink";
+import { clearStoredPairing, queryPaired, readActivePage, uploadDraft } from "./capture";
 import {
   eventForUploadResult,
   initialPopup,
@@ -43,10 +43,17 @@ function render(): void {
   preview.hidden = !view.showPreview;
   title.textContent = view.previewTitle ?? "";
   host.textContent = view.hostname ?? "";
+  preview.setAttribute(
+    "aria-label",
+    view.showPreview
+      ? `${view.previewTitle}. ${view.hostname}. Destination Inbox. Format EPUB.`
+      : "",
+  );
   meta.hidden = !view.showMeta;
   status.hidden = !view.status;
   status.textContent = view.status;
-  status.dataset.state = phase.name === "success" ? "ok" : phase.name === "error" || (phase.name === "ready" && phase.offline) ? "bad" : "";
+  status.dataset.state =
+    phase.name === "success" ? "ok" : phase.name === "error" || phase.name === "unavailable" || (phase.name === "ready" && phase.offline) ? "bad" : "";
   detail.hidden = !view.detail;
   detail.textContent = view.detail;
   footnote.hidden = !view.footnote;
@@ -62,6 +69,15 @@ function render(): void {
 
 function openApp(reason: PairingDeepLinkReason): void {
   assignPairingLink(window.location, reason);
+}
+
+async function clearPairingThenOpen(): Promise<void> {
+  try {
+    await clearStoredPairing(nativeSend);
+  } catch {
+    // Still open the app. The token was already unusable.
+  }
+  window.location.href = pairingDeepLink("expired");
 }
 
 async function loadPage(): Promise<void> {
@@ -80,11 +96,17 @@ async function loadPage(): Promise<void> {
     render();
     return;
   }
-  const paired = await queryPaired(nativeSend);
+  const page = previewFromDraft(read.draft);
+  const pairing = await queryPaired(nativeSend);
+  if (pairing.status === "unreachable") {
+    phase = reducePopup(phase, { type: "nativeUnreachable", page });
+    render();
+    return;
+  }
   phase = reducePopup(phase, {
     type: "pageLoaded",
-    page: previewFromDraft(read.draft),
-    paired,
+    page,
+    paired: pairing.paired,
     offline: navigator.onLine === false,
   });
   render();
@@ -155,6 +177,10 @@ function runAction(action: PopupAction | undefined, reason: PairingDeepLinkReaso
 element("#primary", HTMLButtonElement).addEventListener("click", () => {
   const view = popupCopy(phase);
   if (view.primaryDisabled) return;
+  if (view.clearPairing) {
+    void clearPairingThenOpen();
+    return;
+  }
   runAction(view.primaryAction, view.openReason);
 });
 

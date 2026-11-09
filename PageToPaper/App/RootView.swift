@@ -7,6 +7,21 @@ struct RootView: View {
     @State private var openPairingAfterOnboarding = false
 
     var body: some View {
+        VStack(spacing: 0) {
+            #if DEBUG
+            if !AppPreferences.suiteAvailable {
+                Text("The App Group is unavailable, so preferences were not saved.")
+                    .font(.footnote)
+                    .frame(maxWidth: .infinity)
+                    .padding(8)
+                    .background(Color.red.opacity(0.15))
+            }
+            #endif
+            navigation
+        }
+    }
+
+    private var navigation: some View {
         NavigationView {
             Group {
                 if hasCompletedOnboarding {

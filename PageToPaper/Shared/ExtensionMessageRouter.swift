@@ -1,26 +1,25 @@
 import Foundation
 
 enum MessageSecrets {
-    /// Normalized like `normalizeSecretKey` in src/messaging.ts: lowercased, `_` and `-` removed.
-    static let normalizedKeys: Set<String> = [
-        "token",
-        "password",
-        "secret",
-        "accesstoken",
-        "authorization",
-        "bearer",
-        "devicetoken",
-        "refreshtoken",
-    ]
+    /// Matched as substrings after NFKC, trim, lowercase, and stripping non-alphanumerics.
+    /// `token` covers deviceToken and refreshToken. Mirrors `isSecretKey` in src/messaging.ts.
+    static let stems = ["token", "password", "secret", "apikey", "accesstoken", "authorization", "bearer"]
 
     static func normalize(_ key: String) -> String {
-        String(key.lowercased().filter { $0 != "_" && $0 != "-" })
+        let folded = key.precomposedStringWithCompatibilityMapping
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        return String(folded.filter { $0.isLetter || $0.isNumber })
     }
 
     static func containsSecret(_ value: Any) -> Bool {
         if let dictionary = value as? [String: Any] {
-            for (key, child) in dictionary where normalizedKeys.contains(normalize(key)) || containsSecret(child) {
-                return true
+            for (key, child) in dictionary {
+                let normalized = normalize(key)
+                let keyIsSecret = !normalized.isEmpty && stems.contains { normalized.contains($0) }
+                if keyIsSecret || containsSecret(child) {
+                    return true
+                }
             }
             return false
         }
@@ -41,6 +40,10 @@ enum ExtensionMessageRouter {
         }
         if (body["type"] as? String) == "pairingStatus" {
             return ["paired": RemarkableAuth().isPaired()]
+        }
+        if (body["type"] as? String) == "clearPairing" {
+            RemarkableAuth().signOut()
+            return ["ok": true, "cleared": true]
         }
         guard (body["type"] as? String) == "uploadArticle" else {
             return failure("Unsupported message.")

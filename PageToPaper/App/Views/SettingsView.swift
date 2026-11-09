@@ -4,6 +4,7 @@ struct SettingsView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var paired = false
     @State private var pairingReason: PairingReason?
+    @State private var confirmSignOut = false
 
     var body: some View {
         List {
@@ -19,7 +20,7 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                Button("Sign out", action: signOut)
+                Button("Sign out") { confirmSignOut = true }
                     .foregroundColor(.red)
             }
             Section(
@@ -48,6 +49,10 @@ struct SettingsView: View {
             if phase == .active {
                 refresh()
             }
+        }
+        .confirmationDialog("Sign out of reMarkable on this device?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+            Button("Sign out", role: .destructive, action: signOut)
+            Button("Cancel", role: .cancel) {}
         }
     }
 

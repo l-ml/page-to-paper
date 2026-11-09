@@ -2,6 +2,8 @@ import type { PairingDeepLinkReason } from "./appLink";
 import type { ArticleDraft } from "./messaging";
 
 export const successDismissMs = 1200;
+export const nativeCallTimeoutMs = 10_000;
+export const unavailableDetail = "Sending to your reMarkable isn't implemented in this build.";
 
 export const errorKinds = [
   "network",
@@ -28,6 +30,7 @@ export type PopupPhase =
   | { name: "ready"; page: PagePreview; paired: boolean; offline: boolean }
   | { name: "sending"; page: PagePreview }
   | { name: "success"; page: PagePreview }
+  | { name: "unavailable"; page: PagePreview }
   | { name: "error"; kind: ErrorKind; page?: PagePreview };
 
 export type PopupEvent =
@@ -36,7 +39,9 @@ export type PopupEvent =
   | { type: "pageUnread" }
   | { type: "send" }
   | { type: "uploadSucceeded" }
+  | { type: "uploadUnavailable" }
   | { type: "uploadFailed"; kind: ErrorKind }
+  | { type: "nativeUnreachable"; page?: PagePreview }
   | { type: "retry" }
   | { type: "acknowledge" }
   | { type: "done" }
@@ -58,6 +63,8 @@ export interface PopupView {
   secondaryLabel?: string;
   secondaryAction?: PopupAction;
   openReason?: PairingDeepLinkReason;
+  /** Ask the app to delete the stored token before opening it. */
+  clearPairing?: boolean;
   busy: boolean;
   announcement: string;
 }
@@ -89,9 +96,15 @@ export function reducePopup(state: PopupPhase, event: PopupEvent): PopupPhase {
     case "uploadSucceeded":
       if (state.name !== "sending") return state;
       return { name: "success", page: state.page };
+    case "uploadUnavailable":
+      if (state.name !== "sending") return state;
+      return { name: "unavailable", page: state.page };
     case "uploadFailed":
       if (state.name !== "sending") return state;
       return { name: "error", kind: event.kind, page: state.page };
+    case "nativeUnreachable":
+      if (state.name !== "reading") return state;
+      return { name: "error", kind: "appUnreachable", page: event.page };
     case "retry":
       if (state.name !== "error") return state;
       if (state.kind === "pageUnread" || state.kind === "notPaired" || state.kind === "authExpired" || !state.page) {
@@ -100,6 +113,9 @@ export function reducePopup(state: PopupPhase, event: PopupEvent): PopupPhase {
       if (state.kind === "rateLimit" || state.kind === "unsupportedPage") return state;
       return { name: "sending", page: state.page };
     case "acknowledge":
+      if (state.name === "unavailable") {
+        return { name: "ready", page: state.page, paired: true, offline: false };
+      }
       if (state.name !== "error") return state;
       if (!state.page) return { name: "idle" };
       return {
@@ -159,6 +175,19 @@ export function popupCopy(state: PopupPhase): PopupView {
         busy: false,
         announcement: "Sent to reMarkable Inbox as EPUB.",
       };
+    case "unavailable":
+      return {
+        ...preview(state.page),
+        showMeta: true,
+        status: "Not available yet",
+        detail: unavailableDetail,
+        footnote: "",
+        primaryLabel: "OK",
+        primaryAction: "dismiss",
+        primaryDisabled: false,
+        busy: false,
+        announcement: `Not available yet. ${unavailableDetail}`,
+      };
     case "error":
       return errorCopy(state.kind, state.page);
     default:
@@ -166,8 +195,14 @@ export function popupCopy(state: PopupPhase): PopupView {
   }
 }
 
-export function eventForUploadResult(result: { ok: boolean; message: string }): PopupEvent {
-  if (result.ok) return { type: "uploadSucceeded" };
+/** Success is only for a real upload. The stub sets `implemented` false or omits it. */
+export function eventForUploadResult(result: {
+  ok: boolean;
+  message: string;
+  implemented?: boolean;
+}): PopupEvent {
+  if (result.ok && result.implemented === true) return { type: "uploadSucceeded" };
+  if (result.ok) return { type: "uploadUnavailable" };
   return { type: "uploadFailed", kind: errorKindForUploadFailure(result.message) };
 }
 
@@ -212,10 +247,12 @@ function errorCopy(kind: ErrorKind, page?: PagePreview): PopupView {
       secondaryLabel: "Retry",
       secondaryAction: "retry-read",
       openReason: "required",
+      clearPairing: true,
     },
     authExpired: {
       ...view("Sign in again", "Your reMarkable session expired.", "Re-pair", "open-app"),
       openReason: "expired",
+      clearPairing: true,
     },
     rateLimit: view("Too many sends", "Please wait a moment and try again.", "OK", "dismiss"),
     unsupportedPage: view("Can’t send this page", "This page can’t be saved as an EPUB.", "OK", "dismiss"),

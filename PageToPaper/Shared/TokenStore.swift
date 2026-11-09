@@ -1,16 +1,19 @@
 import Foundation
+import os
 import Security
 
 enum TokenStoreError: Error, Equatable {
+    case missingSharedAccessGroup
     case unexpectedStatus(OSStatus)
 }
 
 /// Keychain slot for the stub device token. JavaScript cannot read this store.
-/// When the shared access group is not signed yet, the item stays in the app’s local keychain
-/// so Pair and Sign out can change what the screens show. It is not shared with the extension until the group exists.
+/// A missing shared access group is a hard failure: the app and extension would otherwise
+/// write into separate keychains.
 struct TokenStore {
     static let service = "com.example.pagetopaper.device-token"
     static let account = "remarkable-device-token"
+    private static let log = Logger(subsystem: "com.example.pagetopaper", category: "keychain")
 
     private let accessGroup: String?
 
@@ -20,7 +23,7 @@ struct TokenStore {
 
     func save(_ data: Data) throws {
         try delete()
-        var query = baseQuery()
+        var query = try baseQuery(writing: true)
         query[kSecValueData as String] = data
         query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         let status = SecItemAdd(query as CFDictionary, nil)
@@ -30,7 +33,7 @@ struct TokenStore {
     }
 
     func load() throws -> Data? {
-        var query = baseQuery()
+        var query = try baseQuery(writing: false)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var item: CFTypeRef?
@@ -45,21 +48,27 @@ struct TokenStore {
     }
 
     func delete() throws {
-        let status = SecItemDelete(baseQuery() as CFDictionary)
+        let status = SecItemDelete(try baseQuery(writing: false) as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw TokenStoreError.unexpectedStatus(status)
         }
     }
 
-    private func baseQuery() -> [String: Any] {
-        var query: [String: Any] = [
+    private func baseQuery(writing: Bool) throws -> [String: Any] {
+        guard let accessGroup, !accessGroup.isEmpty else {
+            Self.log.error("Shared Keychain access group is unavailable. Refusing a private keychain the extension cannot read.")
+            #if DEBUG
+            if writing {
+                assertionFailure("Keychain access group is still the unsigned placeholder. The app and extension keychains are separate, so pairing was not stored.")
+            }
+            #endif
+            throw TokenStoreError.missingSharedAccessGroup
+        }
+        return [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.service,
             kSecAttrAccount as String: Self.account,
+            kSecAttrAccessGroup as String: accessGroup,
         ]
-        if let accessGroup, !accessGroup.isEmpty {
-            query[kSecAttrAccessGroup as String] = accessGroup
-        }
-        return query
     }
 }

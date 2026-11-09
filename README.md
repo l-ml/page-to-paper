@@ -12,11 +12,11 @@ The happy path is wired, and every network and file step is a stub.
 
 1. The popup reads the page title and host. It does not upload on open.
 2. The confirm screen shows Destination Inbox, Format EPUB, and Send. If the app is not paired, the button is Pair device. If the device is offline, Send is disabled.
-3. Send calls `SafariWebExtensionHandler`. A stub `ok: true` is shown as Sent. Failures use the inline error states.
+3. Send calls `SafariWebExtensionHandler`. The stub sets `implemented: false`, so the popup says the send is not available yet. It shows Sent only when a result says `implemented: true`.
 4. Done closes the popup. It also closes about 1.2 seconds after success.
 5. Pair device, Re-pair, and Open app set `window.location.href` to `pagetopaper://pair`. The containing app opens Pairing from that URL.
 
-A valid article still gets `ok: true` from the handler, which does not upload anything. A bad message gets `ok: false`.
+A valid article still gets `ok: true` from the handler, with `implemented: false`. Nothing is uploaded. A bad message gets `ok: false`. Native calls give up after 10 seconds and the popup shows that it could not reach the app.
 
 JavaScript never holds tokens. Preferences go in an App Group `UserDefaults` suite. Secrets, when pairing exists, go in a shared Keychain access group. The containing app cannot push work into the extension; the extension always starts the native call.
 
@@ -36,6 +36,8 @@ Shared Swift types are `AppPreferences`, `ArticleDraft`, `ArticleConverter`, `Ex
 ## Placeholder identifiers
 
 These must be replaced before you sign or ship a build. They are not registered to this project.
+
+While `PageToPaperKeychainAccessGroup` is still the `$(AppIdentifierPrefix)` placeholder, the app and the extension do not share a keychain. Each would otherwise write into its own private keychain, and a token stored by one side would be invisible to the other. This build refuses that: `TokenStore` logs the failure and, in DEBUG, asserts when a write is attempted. Pairing is not stored until the access group is a real, signed team-prefixed value. Preferences never fall back to `UserDefaults.standard` if the App Group suite cannot be opened. In DEBUG the app shows that failure; otherwise onboarding is simply not recorded.
 
 | Use | Value |
 | --- | --- |

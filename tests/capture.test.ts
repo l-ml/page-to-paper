@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { queryPaired, readActivePage, uploadDraft } from "../src/capture";
+import { nativeCallTimeoutMs } from "../src/popupState";
 
 const extracted = {
   type: "articleDraft",
@@ -39,8 +40,27 @@ describe("readActivePage", () => {
 describe("native calls", () => {
   it("asks only for pairing status while preparing", async () => {
     const sendNative = vi.fn(async () => ({ paired: true }));
-    await expect(queryPaired(sendNative)).resolves.toBe(true);
+    await expect(queryPaired(sendNative)).resolves.toEqual({ status: "known", paired: true });
     expect(sendNative).toHaveBeenCalledWith("application", { type: "pairingStatus" });
+  });
+
+  it("reports an unreachable app instead of not paired", async () => {
+    await expect(queryPaired(async () => {
+      throw new Error("disconnected");
+    })).resolves.toEqual({ status: "unreachable" });
+    await expect(queryPaired(async () => ({ paired: false }))).resolves.toEqual({ status: "known", paired: false });
+  });
+
+  it("stops waiting after the native-call timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const hung = queryPaired(() => new Promise(() => {}));
+      await vi.advanceTimersByTimeAsync(nativeCallTimeoutMs);
+      await expect(hung).resolves.toEqual({ status: "unreachable" });
+      expect(nativeCallTimeoutMs).toBe(10_000);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("uploads only when uploadDraft is called", async () => {

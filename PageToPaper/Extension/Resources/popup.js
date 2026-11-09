@@ -24,20 +24,25 @@
     extractArticle: "extractArticle",
     articleDraft: "articleDraft",
     uploadArticle: "uploadArticle",
-    pairingStatus: "pairingStatus"
+    pairingStatus: "pairingStatus",
+    clearPairing: "clearPairing"
   };
   var forbiddenSecretKeys = [
     "token",
     "password",
     "secret",
+    "apikey",
     "accesstoken",
     "authorization",
-    "bearer",
-    "devicetoken",
-    "refreshtoken"
+    "bearer"
   ];
   function normalizeSecretKey(key) {
-    return key.toLowerCase().replace(/[_-]/g, "");
+    return key.normalize("NFKC").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+  function isSecretKey(key) {
+    const normalized = normalizeSecretKey(key);
+    if (!normalized) return false;
+    return forbiddenSecretKeys.some((stem) => normalized.includes(stem));
   }
   var containingAppNativeId = "application";
   var MessageShapeError = class extends Error {
@@ -59,7 +64,7 @@
     }
     if (!isRecord(value)) return null;
     for (const [key, child] of Object.entries(value)) {
-      if (forbiddenSecretKeys.includes(normalizeSecretKey(key))) return key;
+      if (isSecretKey(key)) return key;
       const found = findForbiddenSecretKey(child);
       if (found) return found;
     }
@@ -148,6 +153,7 @@
       return { ok: false, message: "The app returned an unreadable result." };
     }
     const result = { ok: value.ok, message };
+    if (typeof value.implemented === "boolean") result.implemented = value.implemented;
     if (value.documentId !== void 0 && value.documentId !== null) {
       if (typeof value.documentId !== "string") {
         return { ok: false, message: "The app returned an unreadable result." };
@@ -170,38 +176,16 @@
     return { paired: value.paired };
   }
   function sendToContainingApp(message, sendNativeMessage) {
+    if (findForbiddenSecretKey(message)) {
+      return Promise.reject(new MessageShapeError("Messages must not carry secrets."));
+    }
     return sendNativeMessage(containingAppNativeId, message);
-  }
-
-  // src/capture.ts
-  async function readActivePage(deps) {
-    const tab = await deps.queryActiveTab();
-    if (tab?.id === void 0) return { ok: false };
-    try {
-      return { ok: true, draft: parseArticleDraft(await deps.extract(tab.id)) };
-    } catch {
-      return { ok: false };
-    }
-  }
-  async function queryPaired(sendNative) {
-    try {
-      const raw = await sendToContainingApp({ type: "pairingStatus" }, sendNative);
-      return parsePairingStatus(raw).paired;
-    } catch {
-      return false;
-    }
-  }
-  async function uploadDraft(draft, sendNative) {
-    try {
-      const raw = await sendToContainingApp(buildUploadRequest(draft), sendNative);
-      return parseUploadResult(raw);
-    } catch {
-      return { ok: false, message: "The Page to Paper app did not answer." };
-    }
   }
 
   // src/popupState.ts
   var successDismissMs = 1200;
+  var nativeCallTimeoutMs = 1e4;
+  var unavailableDetail = "Sending to your reMarkable isn't implemented in this build.";
   function initialPopup() {
     return { name: "idle" };
   }
@@ -227,9 +211,15 @@
       case "uploadSucceeded":
         if (state.name !== "sending") return state;
         return { name: "success", page: state.page };
+      case "uploadUnavailable":
+        if (state.name !== "sending") return state;
+        return { name: "unavailable", page: state.page };
       case "uploadFailed":
         if (state.name !== "sending") return state;
         return { name: "error", kind: event.kind, page: state.page };
+      case "nativeUnreachable":
+        if (state.name !== "reading") return state;
+        return { name: "error", kind: "appUnreachable", page: event.page };
       case "retry":
         if (state.name !== "error") return state;
         if (state.kind === "pageUnread" || state.kind === "notPaired" || state.kind === "authExpired" || !state.page) {
@@ -238,6 +228,9 @@
         if (state.kind === "rateLimit" || state.kind === "unsupportedPage") return state;
         return { name: "sending", page: state.page };
       case "acknowledge":
+        if (state.name === "unavailable") {
+          return { name: "ready", page: state.page, paired: true, offline: false };
+        }
         if (state.name !== "error") return state;
         if (!state.page) return { name: "idle" };
         return {
@@ -295,6 +288,19 @@
           busy: false,
           announcement: "Sent to reMarkable Inbox as EPUB."
         };
+      case "unavailable":
+        return {
+          ...preview(state.page),
+          showMeta: true,
+          status: "Not available yet",
+          detail: unavailableDetail,
+          footnote: "",
+          primaryLabel: "OK",
+          primaryAction: "dismiss",
+          primaryDisabled: false,
+          busy: false,
+          announcement: `Not available yet. ${unavailableDetail}`
+        };
       case "error":
         return errorCopy(state.kind, state.page);
       default:
@@ -302,7 +308,8 @@
     }
   }
   function eventForUploadResult(result) {
-    if (result.ok) return { type: "uploadSucceeded" };
+    if (result.ok && result.implemented === true) return { type: "uploadSucceeded" };
+    if (result.ok) return { type: "uploadUnavailable" };
     return { type: "uploadFailed", kind: errorKindForUploadFailure(result.message) };
   }
   function errorKindForUploadFailure(message) {
@@ -343,11 +350,13 @@
         ...view("Pairing required", "Open Page to Paper and pair your reMarkable.", "Re-pair", "open-app"),
         secondaryLabel: "Retry",
         secondaryAction: "retry-read",
-        openReason: "required"
+        openReason: "required",
+        clearPairing: true
       },
       authExpired: {
         ...view("Sign in again", "Your reMarkable session expired.", "Re-pair", "open-app"),
-        openReason: "expired"
+        openReason: "expired",
+        clearPairing: true
       },
       rateLimit: view("Too many sends", "Please wait a moment and try again.", "OK", "dismiss"),
       unsupportedPage: view("Can\u2019t send this page", "This page can\u2019t be saved as an EPUB.", "OK", "dismiss"),
@@ -403,6 +412,62 @@
     };
   }
 
+  // src/capture.ts
+  async function readActivePage(deps) {
+    const tab = await deps.queryActiveTab();
+    if (tab?.id === void 0) return { ok: false };
+    try {
+      return { ok: true, draft: parseArticleDraft(await deps.extract(tab.id)) };
+    } catch {
+      return { ok: false };
+    }
+  }
+  async function queryPaired(sendNative) {
+    try {
+      const raw = await sendToContainingApp(
+        { type: messageTypes.pairingStatus },
+        (application, body) => withTimeout(sendNative(application, body))
+      );
+      return { status: "known", paired: parsePairingStatus(raw).paired };
+    } catch {
+      return { status: "unreachable" };
+    }
+  }
+  async function uploadDraft(draft, sendNative) {
+    try {
+      const raw = await sendToContainingApp(
+        buildUploadRequest(draft),
+        (application, body) => withTimeout(sendNative(application, body))
+      );
+      return parseUploadResult(raw);
+    } catch {
+      return { ok: false, message: "The Page to Paper app did not answer." };
+    }
+  }
+  async function clearStoredPairing(sendNative) {
+    await sendToContainingApp(
+      { type: messageTypes.clearPairing },
+      (application, body) => withTimeout(sendNative(application, body))
+    );
+  }
+  function withTimeout(work) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error("The Page to Paper app did not answer."));
+      }, nativeCallTimeoutMs);
+      work.then(
+        (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (error) => {
+          clearTimeout(timer);
+          reject(error);
+        }
+      );
+    });
+  }
+
   // src/popup.ts
   var phase = initialPopup();
   var dismissTimer;
@@ -432,10 +497,14 @@
     preview2.hidden = !view2.showPreview;
     title.textContent = view2.previewTitle ?? "";
     host.textContent = view2.hostname ?? "";
+    preview2.setAttribute(
+      "aria-label",
+      view2.showPreview ? `${view2.previewTitle}. ${view2.hostname}. Destination Inbox. Format EPUB.` : ""
+    );
     meta.hidden = !view2.showMeta;
     status.hidden = !view2.status;
     status.textContent = view2.status;
-    status.dataset.state = phase.name === "success" ? "ok" : phase.name === "error" || phase.name === "ready" && phase.offline ? "bad" : "";
+    status.dataset.state = phase.name === "success" ? "ok" : phase.name === "error" || phase.name === "unavailable" || phase.name === "ready" && phase.offline ? "bad" : "";
     detail.hidden = !view2.detail;
     detail.textContent = view2.detail;
     footnote.hidden = !view2.footnote;
@@ -450,6 +519,13 @@
   }
   function openApp(reason) {
     assignPairingLink(window.location, reason);
+  }
+  async function clearPairingThenOpen() {
+    try {
+      await clearStoredPairing(nativeSend);
+    } catch {
+    }
+    window.location.href = pairingDeepLink("expired");
   }
   async function loadPage() {
     clearTimeout(dismissTimer);
@@ -467,11 +543,17 @@
       render();
       return;
     }
-    const paired = await queryPaired(nativeSend);
+    const page = previewFromDraft(read.draft);
+    const pairing = await queryPaired(nativeSend);
+    if (pairing.status === "unreachable") {
+      phase = reducePopup(phase, { type: "nativeUnreachable", page });
+      render();
+      return;
+    }
     phase = reducePopup(phase, {
       type: "pageLoaded",
-      page: previewFromDraft(read.draft),
-      paired,
+      page,
+      paired: pairing.paired,
       offline: navigator.onLine === false
     });
     render();
@@ -538,6 +620,10 @@
   element("#primary", HTMLButtonElement).addEventListener("click", () => {
     const view2 = popupCopy(phase);
     if (view2.primaryDisabled) return;
+    if (view2.clearPairing) {
+      void clearPairingThenOpen();
+      return;
+    }
     runAction(view2.primaryAction, view2.openReason);
   });
   element("#secondary", HTMLButtonElement).addEventListener("click", () => {

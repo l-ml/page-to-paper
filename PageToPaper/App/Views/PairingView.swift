@@ -7,6 +7,8 @@ struct PairingView: View {
     @State private var paired = false
     @State private var code = ""
     @State private var showsError = false
+    @State private var confirmSignOut = false
+    @State private var confirmRepair = false
 
     var body: some View {
         ScrollView {
@@ -15,13 +17,17 @@ struct PairingView: View {
                 if paired {
                     Text("This device can send EPUBs to your reMarkable Inbox.")
                         .font(.body)
-                    Button(action: signOut) {
+                    Button {
+                        confirmSignOut = true
+                    } label: {
                         Text("Sign out")
                             .frame(maxWidth: .infinity, minHeight: 44)
                     }
                     .buttonStyle(.bordered)
                     .foregroundColor(.red)
-                    Button(action: repair) {
+                    Button {
+                        confirmRepair = true
+                    } label: {
                         Text("Re-pair")
                             .frame(maxWidth: .infinity, minHeight: 44)
                     }
@@ -37,6 +43,7 @@ struct PairingView: View {
                         .keyboardType(.asciiCapable)
                         .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
+                        .textContentType(.oneTimeCode)
                         .frame(minHeight: 44)
                     Button(action: pair) {
                         Text("Pair")
@@ -45,7 +52,7 @@ struct PairingView: View {
                     .buttonStyle(.borderedProminent)
                     .disabled(!PairingCode.isValid(code))
                     if showsError {
-                        Text("Couldn’t pair. Codes are single use and expire in about 5 minutes. Enter a fresh code and try again.")
+                        Text("Couldn’t pair. Check the code and try again.")
                             .font(.footnote)
                             .foregroundColor(.red)
                             .fixedSize(horizontal: false, vertical: true)
@@ -75,6 +82,14 @@ struct PairingView: View {
             if showsError {
                 showsError = false
             }
+        }
+        .confirmationDialog("Sign out of reMarkable on this device?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+            Button("Sign out", role: .destructive, action: signOut)
+            Button("Cancel", role: .cancel) {}
+        }
+        .confirmationDialog("Re-pair this device?", isPresented: $confirmRepair, titleVisibility: .visible) {
+            Button("Re-pair", role: .destructive, action: repair)
+            Button("Cancel", role: .cancel) {}
         }
     }
 

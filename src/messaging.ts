@@ -12,25 +12,32 @@ export const messageTypes = {
   articleDraft: "articleDraft",
   uploadArticle: "uploadArticle",
   pairingStatus: "pairingStatus",
+  clearPairing: "clearPairing",
 } as const;
 
 /**
- * Secret key names after lowercasing and removing "_" and "-".
- * Keep in sync with MessageSecrets in ExtensionMessageRouter.swift.
+ * Matched against a key after NFKC, trim, lowercase, and stripping non-alphanumerics.
+ * A key is rejected when its normalized form contains one of these.
+ * `token` also covers deviceToken and refreshToken. Keep in sync with MessageSecrets.
  */
 export const forbiddenSecretKeys = [
   "token",
   "password",
   "secret",
+  "apikey",
   "accesstoken",
   "authorization",
   "bearer",
-  "devicetoken",
-  "refreshtoken",
 ] as const;
 
 export function normalizeSecretKey(key: string): string {
-  return key.toLowerCase().replace(/[_-]/g, "");
+  return key.normalize("NFKC").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+export function isSecretKey(key: string): boolean {
+  const normalized = normalizeSecretKey(key);
+  if (!normalized) return false;
+  return forbiddenSecretKeys.some((stem) => normalized.includes(stem));
 }
 
 /**
@@ -55,6 +62,8 @@ export interface UploadResult {
   ok: boolean;
   message: string;
   documentId?: string;
+  /** True only when a real upload happened. The stub omits this or sets it false. */
+  implemented?: boolean;
 }
 
 export class MessageShapeError extends Error {
@@ -78,7 +87,7 @@ export function findForbiddenSecretKey(value: unknown): string | null {
   }
   if (!isRecord(value)) return null;
   for (const [key, child] of Object.entries(value)) {
-    if ((forbiddenSecretKeys as readonly string[]).includes(normalizeSecretKey(key))) return key;
+    if (isSecretKey(key)) return key;
     const found = findForbiddenSecretKey(child);
     if (found) return found;
   }
@@ -177,6 +186,7 @@ export function parseUploadResult(value: unknown): UploadResult {
     return { ok: false, message: "The app returned an unreadable result." };
   }
   const result: UploadResult = { ok: value.ok, message };
+  if (typeof value.implemented === "boolean") result.implemented = value.implemented;
   if (value.documentId !== undefined && value.documentId !== null) {
     if (typeof value.documentId !== "string") {
       return { ok: false, message: "The app returned an unreadable result." };
@@ -204,5 +214,8 @@ export function sendToContainingApp(
   message: unknown,
   sendNativeMessage: (application: string, body: unknown) => Promise<unknown>,
 ): Promise<unknown> {
+  if (findForbiddenSecretKey(message)) {
+    return Promise.reject(new MessageShapeError("Messages must not carry secrets."));
+  }
   return sendNativeMessage(containingAppNativeId, message);
 }

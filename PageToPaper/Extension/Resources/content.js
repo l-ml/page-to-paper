@@ -6,20 +6,25 @@
     extractArticle: "extractArticle",
     articleDraft: "articleDraft",
     uploadArticle: "uploadArticle",
-    pairingStatus: "pairingStatus"
+    pairingStatus: "pairingStatus",
+    clearPairing: "clearPairing"
   };
   var forbiddenSecretKeys = [
     "token",
     "password",
     "secret",
+    "apikey",
     "accesstoken",
     "authorization",
-    "bearer",
-    "devicetoken",
-    "refreshtoken"
+    "bearer"
   ];
   function normalizeSecretKey(key) {
-    return key.toLowerCase().replace(/[_-]/g, "");
+    return key.normalize("NFKC").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+  function isSecretKey(key) {
+    const normalized = normalizeSecretKey(key);
+    if (!normalized) return false;
+    return forbiddenSecretKeys.some((stem) => normalized.includes(stem));
   }
   function isRecord(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -34,7 +39,7 @@
     }
     if (!isRecord(value)) return null;
     for (const [key, child] of Object.entries(value)) {
-      if (forbiddenSecretKeys.includes(normalizeSecretKey(key))) return key;
+      if (isSecretKey(key)) return key;
       const found = findForbiddenSecretKey(child);
       if (found) return found;
     }
