@@ -15,6 +15,7 @@
     return key.normalize("NFKC").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
   }
   function isSecretKey(key) {
+    if (/[^\u0000-\u007f]/.test(key)) return true;
     const normalized = normalizeSecretKey(key);
     if (!normalized) return false;
     return forbiddenSecretKeys.some((stem) => normalized.includes(stem));

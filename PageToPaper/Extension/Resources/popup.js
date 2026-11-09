@@ -40,6 +40,7 @@
     return key.normalize("NFKC").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
   }
   function isSecretKey(key) {
+    if (/[^\u0000-\u007f]/.test(key)) return true;
     const normalized = normalizeSecretKey(key);
     if (!normalized) return false;
     return forbiddenSecretKeys.some((stem) => normalized.includes(stem));
@@ -216,12 +217,15 @@
         return { name: "unavailable", page: state.page };
       case "uploadFailed":
         if (state.name !== "sending") return state;
-        return { name: "error", kind: event.kind, page: state.page };
+        return { name: "error", kind: event.kind, page: state.page, afterSend: true };
       case "nativeUnreachable":
         if (state.name !== "reading") return state;
-        return { name: "error", kind: "appUnreachable", page: event.page };
+        return { name: "error", kind: "appUnreachable", page: event.page, afterSend: false };
       case "retry":
         if (state.name !== "error") return state;
+        if (state.kind === "appUnreachable" && !state.afterSend) {
+          return { name: "reading" };
+        }
         if (state.kind === "pageUnread" || state.kind === "notPaired" || state.kind === "authExpired" || !state.page) {
           return { name: "reading" };
         }
@@ -302,7 +306,7 @@
           announcement: `Not available yet. ${unavailableDetail}`
         };
       case "error":
-        return errorCopy(state.kind, state.page);
+        return errorCopy(state.kind, state.page, state.afterSend === true);
       default:
         return empty("");
     }
@@ -343,7 +347,7 @@
       announcement: offline ? "You\u2019re offline." : state.page.title
     };
   }
-  function errorCopy(kind, page) {
+  function errorCopy(kind, page, afterSend = false) {
     const table = {
       network: view("Couldn\u2019t send", "Check your connection and try again.", "Retry", "retry-send"),
       notPaired: {
@@ -374,13 +378,17 @@
         "retry-read"
       )
     };
-    return {
+    const copy = {
       ...table[kind],
       showPreview: Boolean(page),
       previewTitle: page?.title,
       hostname: page?.hostname,
       showMeta: false
     };
+    if (kind === "appUnreachable" && !afterSend) {
+      copy.primaryAction = "retry-read";
+    }
+    return copy;
   }
   function view(status, detail, primaryLabel, primaryAction) {
     return {

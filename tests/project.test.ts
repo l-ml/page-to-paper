@@ -41,6 +41,7 @@ describe("extension sources", () => {
       expect(secrets).toContain(`"${key}"`);
     }
     expect(secrets).toContain("precomposedStringWithCompatibilityMapping");
+    expect(secrets).toContain("value > 127");
     expect(read("PageToPaper/Shared/RemarkableCloudClient.swift")).toContain("Nothing was uploaded");
     const handler = read("PageToPaper/Extension/SafariWebExtensionHandler.swift");
     expect(handler).toContain('static let key = "message"');

@@ -1,7 +1,8 @@
 import Foundation
 
 enum MessageSecrets {
-    /// Matched as substrings after NFKC, trim, lowercase, and stripping non-alphanumerics.
+    /// Any non-ASCII key is rejected. ASCII keys are matched as substrings after
+    /// NFKC, trim, lowercase, and stripping non-alphanumerics.
     /// `token` covers deviceToken and refreshToken. Mirrors `isSecretKey` in src/messaging.ts.
     static let stems = ["token", "password", "secret", "apikey", "accesstoken", "authorization", "bearer"]
 
@@ -12,14 +13,18 @@ enum MessageSecrets {
         return String(folded.filter { $0.isLetter || $0.isNumber })
     }
 
+    static func isSecretKey(_ key: String) -> Bool {
+        if key.unicodeScalars.contains(where: { $0.value > 127 }) {
+            return true
+        }
+        let normalized = normalize(key)
+        return !normalized.isEmpty && stems.contains { normalized.contains($0) }
+    }
+
     static func containsSecret(_ value: Any) -> Bool {
         if let dictionary = value as? [String: Any] {
-            for (key, child) in dictionary {
-                let normalized = normalize(key)
-                let keyIsSecret = !normalized.isEmpty && stems.contains { normalized.contains($0) }
-                if keyIsSecret || containsSecret(child) {
-                    return true
-                }
+            for (key, child) in dictionary where isSecretKey(key) || containsSecret(child) {
+                return true
             }
             return false
         }

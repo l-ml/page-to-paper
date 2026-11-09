@@ -17,8 +17,9 @@ export const messageTypes = {
 
 /**
  * Matched against a key after NFKC, trim, lowercase, and stripping non-alphanumerics.
- * A key is rejected when its normalized form contains one of these.
- * `token` also covers deviceToken and refreshToken. Keep in sync with MessageSecrets.
+ * Any key that is not ASCII is rejected. An ASCII key is rejected when its
+ * normalized form contains one of these. `token` also covers deviceToken and refreshToken.
+ * Keep in sync with MessageSecrets.
  */
 export const forbiddenSecretKeys = [
   "token",
@@ -35,6 +36,7 @@ export function normalizeSecretKey(key: string): string {
 }
 
 export function isSecretKey(key: string): boolean {
+  if (/[^\u0000-\u007f]/.test(key)) return true;
   const normalized = normalizeSecretKey(key);
   if (!normalized) return false;
   return forbiddenSecretKeys.some((stem) => normalized.includes(stem));

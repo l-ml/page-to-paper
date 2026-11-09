@@ -85,6 +85,11 @@ describe("parseArticleDraft", () => {
     }
     expect(findForbiddenSecretKey({ deviceToken: "x" })).toBe("deviceToken");
     expect(findForbiddenSecretKey({ refresh_token: "x" })).toBe("refresh_token");
+    const cyrillicToken = "t\u043Eken";
+    expect(findForbiddenSecretKey({ [cyrillicToken]: "x" })).toBe(cyrillicToken);
+    expect(() => parseArticleDraft({ title: "Note", url: "https://example.com", [cyrillicToken]: "x" })).toThrow(
+      /secrets/,
+    );
   });
 
   it("rejects a non-draft message type", () => {

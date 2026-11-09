@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { queryPaired } from "../src/capture";
 import type { ArticleDraft } from "../src/messaging";
 import {
   errorKindForUploadFailure,
   eventForUploadResult,
   initialPopup,
+  nativeCallTimeoutMs,
   popupCopy,
   previewFromDraft,
   reducePopup,
@@ -76,6 +78,33 @@ describe("reducePopup", () => {
       name: "error",
       kind: "appUnreachable",
     });
+  });
+
+  it("does not upload when Retry follows a pairingStatus timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const calls: unknown[] = [];
+      const pending = queryPaired((_application, body) => {
+        calls.push(body);
+        return new Promise(() => {});
+      });
+      await vi.advanceTimersByTimeAsync(nativeCallTimeoutMs);
+      await expect(pending).resolves.toEqual({ status: "unreachable" });
+
+      const failed = reducePopup({ name: "reading" }, { type: "nativeUnreachable", page });
+      expect(popupCopy(failed).primaryAction).toBe("retry-read");
+      expect(reducePopup(failed, { type: "retry" }).name).toBe("reading");
+      expect(calls).toEqual([{ type: "pairingStatus" }]);
+
+      const afterSend = reducePopup(reducePopup(ready(), { type: "send" }), {
+        type: "uploadFailed",
+        kind: "appUnreachable",
+      });
+      expect(popupCopy(afterSend).primaryAction).toBe("retry-send");
+      expect(reducePopup(afterSend, { type: "retry" }).name).toBe("sending");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("retries a send, rereads the page, or returns to confirm", () => {

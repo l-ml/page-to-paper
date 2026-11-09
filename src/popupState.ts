@@ -31,7 +31,7 @@ export type PopupPhase =
   | { name: "sending"; page: PagePreview }
   | { name: "success"; page: PagePreview }
   | { name: "unavailable"; page: PagePreview }
-  | { name: "error"; kind: ErrorKind; page?: PagePreview };
+  | { name: "error"; kind: ErrorKind; page?: PagePreview; afterSend?: boolean };
 
 export type PopupEvent =
   | { type: "open" }
@@ -101,12 +101,15 @@ export function reducePopup(state: PopupPhase, event: PopupEvent): PopupPhase {
       return { name: "unavailable", page: state.page };
     case "uploadFailed":
       if (state.name !== "sending") return state;
-      return { name: "error", kind: event.kind, page: state.page };
+      return { name: "error", kind: event.kind, page: state.page, afterSend: true };
     case "nativeUnreachable":
       if (state.name !== "reading") return state;
-      return { name: "error", kind: "appUnreachable", page: event.page };
+      return { name: "error", kind: "appUnreachable", page: event.page, afterSend: false };
     case "retry":
       if (state.name !== "error") return state;
+      if (state.kind === "appUnreachable" && !state.afterSend) {
+        return { name: "reading" };
+      }
       if (state.kind === "pageUnread" || state.kind === "notPaired" || state.kind === "authExpired" || !state.page) {
         return { name: "reading" };
       }
@@ -189,7 +192,7 @@ export function popupCopy(state: PopupPhase): PopupView {
         announcement: `Not available yet. ${unavailableDetail}`,
       };
     case "error":
-      return errorCopy(state.kind, state.page);
+      return errorCopy(state.kind, state.page, state.afterSend === true);
     default:
       return empty("");
   }
@@ -239,7 +242,7 @@ function readyCopy(state: Extract<PopupPhase, { name: "ready" }>): PopupView {
   };
 }
 
-function errorCopy(kind: ErrorKind, page?: PagePreview): PopupView {
+function errorCopy(kind: ErrorKind, page?: PagePreview, afterSend = false): PopupView {
   const table: Record<ErrorKind, PopupView> = {
     network: view("Couldn’t send", "Check your connection and try again.", "Retry", "retry-send"),
     notPaired: {
@@ -270,13 +273,17 @@ function errorCopy(kind: ErrorKind, page?: PagePreview): PopupView {
       "retry-read",
     ),
   };
-  return {
+  const copy: PopupView = {
     ...table[kind],
     showPreview: Boolean(page),
     previewTitle: page?.title,
     hostname: page?.hostname,
     showMeta: false,
   };
+  if (kind === "appUnreachable" && !afterSend) {
+    copy.primaryAction = "retry-read";
+  }
+  return copy;
 }
 
 function view(status: string, detail: string, primaryLabel: string, primaryAction: PopupAction): PopupView {
