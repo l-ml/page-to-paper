@@ -211,7 +211,7 @@
   var nativeCallTimeoutMs = 1e4;
   var unavailableDetail = "Sending to your reMarkable isn't implemented in this build.";
   function initialPopup() {
-    return { name: "idle" };
+    return { name: "idle", busy: false };
   }
   function previewFromDraft(draft) {
     const hostname = new URL(draft.url).hostname;
@@ -222,63 +222,80 @@
   function reducePopup(state, event) {
     switch (event.type) {
       case "open":
-        return { name: "reading" };
+        return { name: "reading", busy: true };
       case "pageLoaded":
         if (state.name !== "reading") return state;
-        return { name: "ready", page: event.page, paired: event.paired, offline: event.offline };
+        return { name: "ready", page: event.page, paired: event.paired, offline: event.offline, busy: false };
       case "pageUnread":
         if (state.name !== "reading") return state;
-        return { name: "error", kind: "pageUnread" };
+        return { name: "error", kind: "pageUnread", busy: false };
       case "send":
         if (state.name !== "ready" || !state.paired || state.offline) return state;
-        return { name: "sending", page: state.page };
+        return { name: "sending", page: state.page, busy: true };
       case "uploadSucceeded":
         if (state.name !== "sending") return state;
-        return { name: "success", page: state.page };
+        return { name: "success", page: state.page, busy: false };
       case "uploadUnavailable":
         if (state.name !== "sending") return state;
-        return { name: "unavailable", page: state.page };
+        return { name: "unavailable", page: state.page, busy: false };
       case "uploadFailed":
         if (state.name !== "sending") return state;
-        return { name: "error", kind: event.kind, page: state.page, afterSend: true };
+        return { name: "error", kind: event.kind, page: state.page, afterSend: true, busy: false };
       case "nativeUnreachable":
         if (state.name !== "reading") return state;
-        return { name: "error", kind: "appUnreachable", page: event.page, afterSend: false };
+        return { name: "error", kind: "appUnreachable", page: event.page, afterSend: false, busy: false };
+      case "busyTimeout":
+        if (!state.busy) return state;
+        return {
+          name: "error",
+          kind: "appUnreachable",
+          page: pageOf(state),
+          afterSend: state.name === "sending",
+          busy: false
+        };
       case "retry":
         if (state.name !== "error") return state;
         if (state.kind === "appUnreachable" && !state.afterSend) {
-          return { name: "reading" };
+          return { name: "reading", busy: true };
         }
         if (state.kind === "pageUnread" || state.kind === "notPaired" || state.kind === "authExpired" || !state.page) {
-          return { name: "reading" };
+          return { name: "reading", busy: true };
         }
         if (state.kind === "rateLimit" || state.kind === "unsupportedPage") return state;
-        return { name: "sending", page: state.page };
+        return { name: "sending", page: state.page, busy: true };
       case "acknowledge":
         if (state.name === "unavailable") {
-          return { name: "ready", page: state.page, paired: true, offline: false };
+          return { name: "ready", page: state.page, paired: true, offline: false, busy: false };
         }
         if (state.name !== "error") return state;
-        if (!state.page) return { name: "idle" };
+        if (!state.page) return { name: "idle", busy: false };
         return {
           name: "ready",
           page: state.page,
           paired: state.kind !== "notPaired" && state.kind !== "authExpired",
-          offline: false
+          offline: false,
+          busy: false
         };
       case "done":
         if (state.name !== "success") return state;
-        return { name: "idle" };
+        return { name: "idle", busy: false };
       case "connectivity":
         if (state.name !== "ready") return state;
-        return { ...state, offline: event.offline };
+        return { ...state, offline: event.offline, busy: false };
       default:
         return state;
     }
   }
   var pairedFootnote = "Saves an EPUB to your reMarkable Inbox.";
   var unpairedFootnote = "Pair your reMarkable in the Page to Paper app to continue.";
+  function pageOf(state) {
+    if (state.name === "idle" || state.name === "reading") return void 0;
+    return state.page;
+  }
   function popupCopy(state) {
+    return { ...copyFor(state), busy: state.busy };
+  }
+  function copyFor(state) {
     switch (state.name) {
       case "idle":
         return empty("Reading this page\u2026");
@@ -299,7 +316,6 @@
           primaryLabel: "Sending as EPUB\u2026",
           primaryAction: "send",
           primaryDisabled: true,
-          busy: true,
           announcement: "Sending as EPUB to Inbox"
         };
       case "success":
@@ -312,7 +328,6 @@
           primaryLabel: "Done",
           primaryAction: "done",
           primaryDisabled: false,
-          busy: false,
           announcement: "Sent to reMarkable Inbox as EPUB."
         };
       case "unavailable":
@@ -325,7 +340,6 @@
           primaryLabel: "OK",
           primaryAction: "dismiss",
           primaryDisabled: false,
-          busy: false,
           announcement: `Not available yet. ${unavailableDetail}`
         };
       case "error":
@@ -366,7 +380,6 @@
       primaryAction: paired ? "send" : "open-app",
       primaryDisabled: paired && offline,
       openReason: paired ? void 0 : "required",
-      busy: false,
       announcement: offline ? "You\u2019re offline." : state.page.title
     };
   }
@@ -423,7 +436,6 @@
       primaryLabel,
       primaryAction,
       primaryDisabled: false,
-      busy: false,
       announcement: `${status}. ${detail}`
     };
   }
@@ -438,7 +450,6 @@
       detail: "",
       footnote: "",
       primaryDisabled: true,
-      busy: false,
       announcement: status
     };
   }
@@ -480,32 +491,27 @@
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
 
-  // src/popup.ts
-  var phase = initialPopup();
-  var dismissTimer;
-  function element(selector, ctor) {
-    const node = document.querySelector(selector);
+  // src/popupRender.ts
+  function element(doc, selector, ctor) {
+    const node = doc.querySelector(selector);
     if (!(node instanceof ctor)) {
       throw new Error(`Missing ${selector}`);
     }
     return node;
   }
-  function dispatch(message) {
-    return requestNative(message, (body) => browser.runtime.sendMessage(body));
-  }
-  function render() {
+  function renderPopup(doc, phase) {
     const view2 = popupCopy(phase);
-    const preview2 = element("#preview", HTMLElement);
-    const title = element("#page-title", HTMLElement);
-    const host = element("#page-host", HTMLElement);
-    const meta = element("#meta", HTMLElement);
-    const status = element("#status", HTMLElement);
-    const detail = element("#detail", HTMLElement);
-    const footnote = element("#footnote", HTMLElement);
-    const primary = element("#primary", HTMLButtonElement);
-    const primaryLabel = element("#primary-label", HTMLElement);
-    const spinner = element("#spinner", HTMLElement);
-    const secondary = element("#secondary", HTMLButtonElement);
+    const preview2 = element(doc, "#preview", HTMLElement);
+    const title = element(doc, "#page-title", HTMLElement);
+    const host = element(doc, "#page-host", HTMLElement);
+    const meta = element(doc, "#meta", HTMLElement);
+    const status = element(doc, "#status", HTMLElement);
+    const detail = element(doc, "#detail", HTMLElement);
+    const footnote = element(doc, "#footnote", HTMLElement);
+    const primary = element(doc, "#primary", HTMLButtonElement);
+    const primaryLabel = element(doc, "#primary-label", HTMLElement);
+    const spinner = element(doc, "#spinner", HTMLElement);
+    const secondary = element(doc, "#secondary", HTMLButtonElement);
     preview2.hidden = !view2.showPreview;
     title.textContent = view2.previewTitle ?? "";
     host.textContent = view2.hostname ?? "";
@@ -523,11 +529,67 @@
     footnote.textContent = view2.footnote;
     primary.hidden = !view2.primaryLabel;
     primary.disabled = view2.primaryDisabled || view2.busy;
+    primary.setAttribute("aria-busy", view2.busy ? "true" : "false");
     primaryLabel.textContent = view2.primaryLabel ?? "";
     spinner.hidden = !view2.busy;
     secondary.hidden = !view2.secondaryLabel;
     secondary.textContent = view2.secondaryLabel ?? "";
     status.setAttribute("aria-label", view2.announcement);
+  }
+
+  // src/popupSession.ts
+  function createPopupSession(options) {
+    const clock = options.clock ?? globalThis;
+    const timeoutMs = options.timeoutMs ?? nativeCallTimeoutMs;
+    const log = options.log ?? ((line) => {
+      if (line.includes("watchdog")) console.warn(line);
+      else console.info(line);
+    });
+    let phase = initialPopup();
+    let watchdog;
+    function disarm() {
+      if (watchdog === void 0) return;
+      clock.clearTimeout(watchdog);
+      watchdog = void 0;
+    }
+    function arm() {
+      disarm();
+      watchdog = clock.setTimeout(() => {
+        watchdog = void 0;
+        if (!phase.busy) return;
+        log(`[page-to-paper] popup watchdog timeout ${phase.name}`);
+        commit({ type: "busyTimeout" });
+      }, timeoutMs);
+    }
+    function commit(event) {
+      const from = phase;
+      phase = reducePopup(phase, event);
+      log(`[page-to-paper] popup ${from.name} -> ${phase.name} busy=${phase.busy}`);
+      options.render(phase);
+      const sameBusyWork = from.busy && phase.busy && from.name === phase.name;
+      if (phase.busy && !sameBusyWork) arm();
+      else if (!phase.busy) disarm();
+    }
+    return {
+      phase: () => phase,
+      commit
+    };
+  }
+
+  // src/popup.ts
+  var session = createPopupSession({
+    render: (phase) => renderPopup(document, phase)
+  });
+  var dismissTimer;
+  function element2(selector, ctor) {
+    const node = document.querySelector(selector);
+    if (!(node instanceof ctor)) {
+      throw new Error(`Missing ${selector}`);
+    }
+    return node;
+  }
+  function dispatch(message) {
+    return requestNative(message, (body) => browser.runtime.sendMessage(body));
   }
   function openApp(reason) {
     assignPairingLink(window.location, reason);
@@ -541,8 +603,7 @@
   }
   async function loadPage() {
     clearTimeout(dismissTimer);
-    phase = reducePopup(phase, { type: "open" });
-    render();
+    session.commit({ type: "open" });
     const read = await readActivePage({
       queryActiveTab: async () => {
         const tabs = await browser.tabs.query({ active: true, currentWindow: true });
@@ -550,29 +611,29 @@
       },
       extract: (tabId) => browser.tabs.sendMessage(tabId, { type: "extractArticle" })
     });
+    if (session.phase().name !== "reading") return;
     if (!read.ok) {
-      phase = reducePopup(phase, { type: "pageUnread" });
-      render();
+      session.commit({ type: "pageUnread" });
       return;
     }
     const page = previewFromDraft(read.draft);
     const pairing = await queryPaired(dispatch);
+    if (session.phase().name !== "reading") return;
     if (pairing.status === "unreachable") {
-      phase = reducePopup(phase, { type: "nativeUnreachable", page });
-      render();
+      session.commit({ type: "nativeUnreachable", page });
       return;
     }
-    phase = reducePopup(phase, {
+    session.commit({
       type: "pageLoaded",
       page,
       paired: pairing.paired,
       offline: navigator.onLine === false
     });
-    render();
   }
   async function performUpload() {
-    if (phase.name !== "sending") return;
-    const page = phase.page;
+    const current = session.phase();
+    if (current.name !== "sending") return;
+    const page = current.page;
     console.info("[page-to-paper] popup send started");
     let event;
     try {
@@ -580,11 +641,11 @@
     } catch {
       event = eventForUploadResult({ ok: false, message: "The Page to Paper app did not answer." });
     }
-    if (phase.name !== "sending") return;
-    phase = reducePopup(phase, event);
-    console.info(`[page-to-paper] popup UI update ${phase.name}`);
-    render();
-    if (phase.name === "success") {
+    if (session.phase().name !== "sending") return;
+    session.commit(event);
+    const updated = session.phase();
+    console.info(`[page-to-paper] popup UI update ${updated.name}`);
+    if (updated.name === "success") {
       dismissTimer = setTimeout(() => {
         finish();
       }, successDismissMs);
@@ -592,8 +653,7 @@
   }
   function finish() {
     clearTimeout(dismissTimer);
-    phase = reducePopup(phase, { type: "done" });
-    render();
+    session.commit({ type: "done" });
     window.close();
   }
   function runAction(action, reason) {
@@ -607,18 +667,14 @@
       return;
     }
     if (action === "send") {
-      const next = reducePopup(phase, { type: "send" });
-      if (next.name !== "sending") return;
-      phase = next;
-      render();
+      session.commit({ type: "send" });
+      if (session.phase().name !== "sending") return;
       void performUpload();
       return;
     }
     if (action === "retry-send") {
-      const next = reducePopup(phase, { type: "retry" });
-      if (next.name !== "sending") return;
-      phase = next;
-      render();
+      session.commit({ type: "retry" });
+      if (session.phase().name !== "sending") return;
       void performUpload();
       return;
     }
@@ -627,12 +683,11 @@
       return;
     }
     if (action === "dismiss") {
-      phase = reducePopup(phase, { type: "acknowledge" });
-      render();
+      session.commit({ type: "acknowledge" });
     }
   }
-  element("#primary", HTMLButtonElement).addEventListener("click", () => {
-    const view2 = popupCopy(phase);
+  element2("#primary", HTMLButtonElement).addEventListener("click", () => {
+    const view2 = popupCopy(session.phase());
     if (view2.primaryDisabled) return;
     if (view2.clearPairing) {
       void clearPairingThenOpen();
@@ -640,17 +695,15 @@
     }
     runAction(view2.primaryAction, view2.openReason);
   });
-  element("#secondary", HTMLButtonElement).addEventListener("click", () => {
-    const view2 = popupCopy(phase);
+  element2("#secondary", HTMLButtonElement).addEventListener("click", () => {
+    const view2 = popupCopy(session.phase());
     runAction(view2.secondaryAction, view2.openReason);
   });
   window.addEventListener("online", () => {
-    phase = reducePopup(phase, { type: "connectivity", offline: false });
-    render();
+    session.commit({ type: "connectivity", offline: false });
   });
   window.addEventListener("offline", () => {
-    phase = reducePopup(phase, { type: "connectivity", offline: true });
-    render();
+    session.commit({ type: "connectivity", offline: true });
   });
   void loadPage();
 })();

@@ -25,13 +25,13 @@ export interface PagePreview {
 }
 
 export type PopupPhase =
-  | { name: "idle" }
-  | { name: "reading" }
-  | { name: "ready"; page: PagePreview; paired: boolean; offline: boolean }
-  | { name: "sending"; page: PagePreview }
-  | { name: "success"; page: PagePreview }
-  | { name: "unavailable"; page: PagePreview }
-  | { name: "error"; kind: ErrorKind; page?: PagePreview; afterSend?: boolean };
+  | { name: "idle"; busy: false }
+  | { name: "reading"; busy: true }
+  | { name: "ready"; page: PagePreview; paired: boolean; offline: boolean; busy: false }
+  | { name: "sending"; page: PagePreview; busy: true }
+  | { name: "success"; page: PagePreview; busy: false }
+  | { name: "unavailable"; page: PagePreview; busy: false }
+  | { name: "error"; kind: ErrorKind; page?: PagePreview; afterSend?: boolean; busy: false };
 
 export type PopupEvent =
   | { type: "open" }
@@ -45,7 +45,8 @@ export type PopupEvent =
   | { type: "retry" }
   | { type: "acknowledge" }
   | { type: "done" }
-  | { type: "connectivity"; offline: boolean };
+  | { type: "connectivity"; offline: boolean }
+  | { type: "busyTimeout" };
 
 export type PopupAction = "send" | "retry-send" | "retry-read" | "open-app" | "dismiss" | "done";
 
@@ -70,7 +71,7 @@ export interface PopupView {
 }
 
 export function initialPopup(): PopupPhase {
-  return { name: "idle" };
+  return { name: "idle", busy: false };
 }
 
 export function previewFromDraft(draft: ArticleDraft): PagePreview {
@@ -83,56 +84,66 @@ export function previewFromDraft(draft: ArticleDraft): PagePreview {
 export function reducePopup(state: PopupPhase, event: PopupEvent): PopupPhase {
   switch (event.type) {
     case "open":
-      return { name: "reading" };
+      return { name: "reading", busy: true };
     case "pageLoaded":
       if (state.name !== "reading") return state;
-      return { name: "ready", page: event.page, paired: event.paired, offline: event.offline };
+      return { name: "ready", page: event.page, paired: event.paired, offline: event.offline, busy: false };
     case "pageUnread":
       if (state.name !== "reading") return state;
-      return { name: "error", kind: "pageUnread" };
+      return { name: "error", kind: "pageUnread", busy: false };
     case "send":
       if (state.name !== "ready" || !state.paired || state.offline) return state;
-      return { name: "sending", page: state.page };
+      return { name: "sending", page: state.page, busy: true };
     case "uploadSucceeded":
       if (state.name !== "sending") return state;
-      return { name: "success", page: state.page };
+      return { name: "success", page: state.page, busy: false };
     case "uploadUnavailable":
       if (state.name !== "sending") return state;
-      return { name: "unavailable", page: state.page };
+      return { name: "unavailable", page: state.page, busy: false };
     case "uploadFailed":
       if (state.name !== "sending") return state;
-      return { name: "error", kind: event.kind, page: state.page, afterSend: true };
+      return { name: "error", kind: event.kind, page: state.page, afterSend: true, busy: false };
     case "nativeUnreachable":
       if (state.name !== "reading") return state;
-      return { name: "error", kind: "appUnreachable", page: event.page, afterSend: false };
+      return { name: "error", kind: "appUnreachable", page: event.page, afterSend: false, busy: false };
+    case "busyTimeout":
+      if (!state.busy) return state;
+      return {
+        name: "error",
+        kind: "appUnreachable",
+        page: pageOf(state),
+        afterSend: state.name === "sending",
+        busy: false,
+      };
     case "retry":
       if (state.name !== "error") return state;
       if (state.kind === "appUnreachable" && !state.afterSend) {
-        return { name: "reading" };
+        return { name: "reading", busy: true };
       }
       if (state.kind === "pageUnread" || state.kind === "notPaired" || state.kind === "authExpired" || !state.page) {
-        return { name: "reading" };
+        return { name: "reading", busy: true };
       }
       if (state.kind === "rateLimit" || state.kind === "unsupportedPage") return state;
-      return { name: "sending", page: state.page };
+      return { name: "sending", page: state.page, busy: true };
     case "acknowledge":
       if (state.name === "unavailable") {
-        return { name: "ready", page: state.page, paired: true, offline: false };
+        return { name: "ready", page: state.page, paired: true, offline: false, busy: false };
       }
       if (state.name !== "error") return state;
-      if (!state.page) return { name: "idle" };
+      if (!state.page) return { name: "idle", busy: false };
       return {
         name: "ready",
         page: state.page,
         paired: state.kind !== "notPaired" && state.kind !== "authExpired",
         offline: false,
+        busy: false,
       };
     case "done":
       if (state.name !== "success") return state;
-      return { name: "idle" };
+      return { name: "idle", busy: false };
     case "connectivity":
       if (state.name !== "ready") return state;
-      return { ...state, offline: event.offline };
+      return { ...state, offline: event.offline, busy: false };
     default:
       return state;
   }
@@ -141,7 +152,16 @@ export function reducePopup(state: PopupPhase, event: PopupEvent): PopupPhase {
 const pairedFootnote = "Saves an EPUB to your reMarkable Inbox.";
 const unpairedFootnote = "Pair your reMarkable in the Page to Paper app to continue.";
 
+function pageOf(state: PopupPhase): PagePreview | undefined {
+  if (state.name === "idle" || state.name === "reading") return undefined;
+  return state.page;
+}
+
 export function popupCopy(state: PopupPhase): PopupView {
+  return { ...copyFor(state), busy: state.busy };
+}
+
+function copyFor(state: PopupPhase): Omit<PopupView, "busy"> {
   switch (state.name) {
     case "idle":
       return empty("Reading this page…");
@@ -162,7 +182,6 @@ export function popupCopy(state: PopupPhase): PopupView {
         primaryLabel: "Sending as EPUB…",
         primaryAction: "send",
         primaryDisabled: true,
-        busy: true,
         announcement: "Sending as EPUB to Inbox",
       };
     case "success":
@@ -175,7 +194,6 @@ export function popupCopy(state: PopupPhase): PopupView {
         primaryLabel: "Done",
         primaryAction: "done",
         primaryDisabled: false,
-        busy: false,
         announcement: "Sent to reMarkable Inbox as EPUB.",
       };
     case "unavailable":
@@ -188,7 +206,6 @@ export function popupCopy(state: PopupPhase): PopupView {
         primaryLabel: "OK",
         primaryAction: "dismiss",
         primaryDisabled: false,
-        busy: false,
         announcement: `Not available yet. ${unavailableDetail}`,
       };
     case "error":
@@ -224,7 +241,7 @@ export function errorKindForUploadFailure(message: string): ErrorKind {
   return "unknown";
 }
 
-function readyCopy(state: Extract<PopupPhase, { name: "ready" }>): PopupView {
+function readyCopy(state: Extract<PopupPhase, { name: "ready" }>): Omit<PopupView, "busy"> {
   const offline = state.offline;
   const paired = state.paired;
   return {
@@ -237,13 +254,12 @@ function readyCopy(state: Extract<PopupPhase, { name: "ready" }>): PopupView {
     primaryAction: paired ? "send" : "open-app",
     primaryDisabled: paired && offline,
     openReason: paired ? undefined : "required",
-    busy: false,
     announcement: offline ? "You’re offline." : state.page.title,
   };
 }
 
-function errorCopy(kind: ErrorKind, page?: PagePreview, afterSend = false): PopupView {
-  const table: Record<ErrorKind, PopupView> = {
+function errorCopy(kind: ErrorKind, page?: PagePreview, afterSend = false): Omit<PopupView, "busy"> {
+  const table: Record<ErrorKind, Omit<PopupView, "busy">> = {
     network: view("Couldn’t send", "Check your connection and try again.", "Retry", "retry-send"),
     notPaired: {
       ...view("Pairing required", "Open Page to Paper and pair your reMarkable.", "Re-pair", "open-app"),
@@ -273,7 +289,7 @@ function errorCopy(kind: ErrorKind, page?: PagePreview, afterSend = false): Popu
       "retry-read",
     ),
   };
-  const copy: PopupView = {
+  const copy: Omit<PopupView, "busy"> = {
     ...table[kind],
     showPreview: Boolean(page),
     previewTitle: page?.title,
@@ -286,7 +302,7 @@ function errorCopy(kind: ErrorKind, page?: PagePreview, afterSend = false): Popu
   return copy;
 }
 
-function view(status: string, detail: string, primaryLabel: string, primaryAction: PopupAction): PopupView {
+function view(status: string, detail: string, primaryLabel: string, primaryAction: PopupAction): Omit<PopupView, "busy"> {
   return {
     showPreview: false,
     showMeta: false,
@@ -296,7 +312,6 @@ function view(status: string, detail: string, primaryLabel: string, primaryActio
     primaryLabel,
     primaryAction,
     primaryDisabled: false,
-    busy: false,
     announcement: `${status}. ${detail}`,
   };
 }
@@ -305,7 +320,7 @@ function preview(page: PagePreview): Pick<PopupView, "previewTitle" | "hostname"
   return { previewTitle: page.title, hostname: page.hostname, showPreview: true };
 }
 
-function empty(status: string): PopupView {
+function empty(status: string): Omit<PopupView, "busy"> {
   return {
     showPreview: false,
     showMeta: false,
@@ -313,7 +328,6 @@ function empty(status: string): PopupView {
     detail: "",
     footnote: "",
     primaryDisabled: true,
-    busy: false,
     announcement: status,
   };
 }

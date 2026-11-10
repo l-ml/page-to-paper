@@ -3,6 +3,7 @@ import type { ArticleDraft } from "../src/messaging";
 import { requestNative } from "../src/nativeCall";
 import {
   errorKindForUploadFailure,
+  errorKinds,
   eventForUploadResult,
   initialPopup,
   nativeCallTimeoutMs,
@@ -29,6 +30,7 @@ function ready(overrides?: { paired?: boolean; offline?: boolean }): PopupPhase 
     page,
     paired: overrides?.paired ?? true,
     offline: overrides?.offline ?? false,
+    busy: false,
   };
 }
 
@@ -43,7 +45,7 @@ describe("reducePopup", () => {
   it("reads the page without sending", () => {
     const reading = reducePopup(initialPopup(), { type: "open" });
     const loaded = reducePopup(reading, { type: "pageLoaded", page, paired: true, offline: false });
-    expect(reading).toEqual({ name: "reading" });
+    expect(reading).toEqual({ name: "reading", busy: true });
     expect(loaded.name).toBe("ready");
     expect(reducePopup(loaded, { type: "uploadSucceeded" })).toEqual(loaded);
   });
@@ -67,7 +69,7 @@ describe("reducePopup", () => {
     const real = reducePopup(sending, eventForUploadResult({ ok: true, message: "Uploaded.", implemented: true }));
     expect(real.name).toBe("success");
     expect(popupCopy(real)).toMatchObject({ status: "Sent", detail: "Saved to Inbox as EPUB." });
-    expect(popupCopy({ name: "unavailable", page })).toMatchObject({
+    expect(popupCopy({ name: "unavailable", page, busy: false })).toMatchObject({
       status: "Not available yet",
       detail: "Sending to your reMarkable isn't implemented in this build.",
     });
@@ -92,7 +94,7 @@ describe("reducePopup", () => {
       await vi.advanceTimersByTimeAsync(nativeCallTimeoutMs);
       await assertion;
 
-      const failed = reducePopup({ name: "reading" }, { type: "nativeUnreachable", page });
+      const failed = reducePopup({ name: "reading", busy: true }, { type: "nativeUnreachable", page });
       expect(popupCopy(failed).primaryAction).toBe("retry-read");
       expect(reducePopup(failed, { type: "retry" }).name).toBe("reading");
       expect(calls).toEqual(["background"]);
@@ -112,7 +114,7 @@ describe("reducePopup", () => {
     const sending = reducePopup(ready(), { type: "send" });
     const network = reducePopup(sending, { type: "uploadFailed", kind: "network" });
     expect(reducePopup(network, { type: "retry" }).name).toBe("sending");
-    const unread = reducePopup({ name: "reading" }, { type: "pageUnread" });
+    const unread = reducePopup({ name: "reading", busy: true }, { type: "pageUnread" });
     expect(reducePopup(unread, { type: "retry" }).name).toBe("reading");
     const limited = reducePopup(sending, { type: "uploadFailed", kind: "rateLimit" });
     expect(reducePopup(limited, { type: "acknowledge" }).name).toBe("ready");
@@ -122,7 +124,7 @@ describe("reducePopup", () => {
 
 describe("popupCopy", () => {
   it("shows confirm copy and does not offer Send until the page is ready and paired", () => {
-    const reading = popupCopy({ name: "reading" });
+    const reading = popupCopy({ name: "reading", busy: true });
     expect(reading.status).toBe("Reading this page…");
     expect(reading.primaryLabel).toBeUndefined();
     expect(reading.showMeta).toBe(false);
@@ -206,14 +208,47 @@ describe("popupCopy", () => {
     };
 
     for (const kind of Object.keys(expected) as ErrorKind[]) {
-      expect(popupCopy({ name: "error", kind, page })).toMatchObject(expected[kind]);
+      expect(popupCopy({ name: "error", kind, page, busy: false })).toMatchObject(expected[kind]);
     }
-    expect(popupCopy({ name: "error", kind: "appUnreachable", page }).secondaryLabel).toBe("Open app");
-    expect(popupCopy({ name: "error", kind: "notPaired", page }).secondaryLabel).toBe("Retry");
-    expect(popupCopy({ name: "error", kind: "authExpired" }).clearPairing).toBe(true);
-    expect(popupCopy({ name: "error", kind: "notPaired" }).clearPairing).toBe(true);
-    expect(popupCopy({ name: "error", kind: "appUnreachable" }).clearPairing).toBeUndefined();
+    expect(popupCopy({ name: "error", kind: "appUnreachable", page, busy: false }).secondaryLabel).toBe("Open app");
+    expect(popupCopy({ name: "error", kind: "notPaired", page, busy: false }).secondaryLabel).toBe("Retry");
+    expect(popupCopy({ name: "error", kind: "authExpired", busy: false }).clearPairing).toBe(true);
+    expect(popupCopy({ name: "error", kind: "notPaired", busy: false }).clearPairing).toBe(true);
+    expect(popupCopy({ name: "error", kind: "appUnreachable", busy: false }).clearPairing).toBeUndefined();
     expect(popupCopy(ready({ paired: false })).clearPairing).toBeUndefined();
+  });
+
+  it("derives busy only from the phase field and leaves it false on every terminal phase", () => {
+    const terminals: PopupPhase[] = [
+      initialPopup(),
+      ready(),
+      ready({ paired: false }),
+      { name: "success", page, busy: false },
+      { name: "unavailable", page, busy: false },
+      ...errorKinds.map((kind): PopupPhase => ({ name: "error", kind, page, busy: false })),
+    ];
+    for (const phase of terminals) {
+      expect(phase.busy).toBe(false);
+      expect(popupCopy(phase).busy).toBe(false);
+    }
+    const reading = reducePopup(initialPopup(), { type: "open" });
+    const sending = reducePopup(ready(), { type: "send" });
+    expect(popupCopy(reading).busy).toBe(reading.busy);
+    expect(popupCopy(sending).busy).toBe(true);
+    for (const phase of [reading, sending]) {
+      const timedOut = reducePopup(phase, { type: "busyTimeout" });
+      expect(timedOut.busy).toBe(false);
+      expect(timedOut.name).toBe("error");
+      expect(popupCopy(timedOut).busy).toBe(false);
+    }
+    const afterLateReply = reducePopup(reducePopup(reading, { type: "busyTimeout" }), {
+      type: "pageLoaded",
+      page,
+      paired: false,
+      offline: false,
+    });
+    expect(afterLateReply.busy).toBe(false);
+    expect(afterLateReply.name).toBe("error");
   });
 });
 

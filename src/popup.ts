@@ -1,18 +1,20 @@
 import { assignPairingLink, pairingDeepLink, type PairingDeepLinkReason } from "./appLink";
 import { clearStoredPairing, queryPaired, readActivePage, uploadDraft } from "./capture";
 import { requestNative } from "./nativeCall";
+import { renderPopup } from "./popupRender";
+import { createPopupSession } from "./popupSession";
 import {
   eventForUploadResult,
-  initialPopup,
   popupCopy,
   previewFromDraft,
-  reducePopup,
   successDismissMs,
   type PopupAction,
-  type PopupPhase,
 } from "./popupState";
 
-let phase: PopupPhase = initialPopup();
+const session = createPopupSession({
+  render: (phase) => renderPopup(document, phase),
+});
+
 let dismissTimer: ReturnType<typeof setTimeout> | undefined;
 
 function element<T extends Element>(selector: string, ctor: new () => T): T {
@@ -25,47 +27,6 @@ function element<T extends Element>(selector: string, ctor: new () => T): T {
 
 function dispatch(message: unknown): Promise<unknown> {
   return requestNative(message, (body) => browser.runtime.sendMessage(body));
-}
-
-function render(): void {
-  const view = popupCopy(phase);
-  const preview = element("#preview", HTMLElement);
-  const title = element("#page-title", HTMLElement);
-  const host = element("#page-host", HTMLElement);
-  const meta = element("#meta", HTMLElement);
-  const status = element("#status", HTMLElement);
-  const detail = element("#detail", HTMLElement);
-  const footnote = element("#footnote", HTMLElement);
-  const primary = element("#primary", HTMLButtonElement);
-  const primaryLabel = element("#primary-label", HTMLElement);
-  const spinner = element("#spinner", HTMLElement);
-  const secondary = element("#secondary", HTMLButtonElement);
-
-  preview.hidden = !view.showPreview;
-  title.textContent = view.previewTitle ?? "";
-  host.textContent = view.hostname ?? "";
-  preview.setAttribute(
-    "aria-label",
-    view.showPreview
-      ? `${view.previewTitle}. ${view.hostname}. Destination Inbox. Format EPUB.`
-      : "",
-  );
-  meta.hidden = !view.showMeta;
-  status.hidden = !view.status;
-  status.textContent = view.status;
-  status.dataset.state =
-    phase.name === "success" ? "ok" : phase.name === "error" || phase.name === "unavailable" || (phase.name === "ready" && phase.offline) ? "bad" : "";
-  detail.hidden = !view.detail;
-  detail.textContent = view.detail;
-  footnote.hidden = !view.footnote;
-  footnote.textContent = view.footnote;
-  primary.hidden = !view.primaryLabel;
-  primary.disabled = view.primaryDisabled || view.busy;
-  primaryLabel.textContent = view.primaryLabel ?? "";
-  spinner.hidden = !view.busy;
-  secondary.hidden = !view.secondaryLabel;
-  secondary.textContent = view.secondaryLabel ?? "";
-  status.setAttribute("aria-label", view.announcement);
 }
 
 function openApp(reason: PairingDeepLinkReason): void {
@@ -83,8 +44,7 @@ async function clearPairingThenOpen(): Promise<void> {
 
 async function loadPage(): Promise<void> {
   clearTimeout(dismissTimer);
-  phase = reducePopup(phase, { type: "open" });
-  render();
+  session.commit({ type: "open" });
   const read = await readActivePage({
     queryActiveTab: async () => {
       const tabs = await browser.tabs.query({ active: true, currentWindow: true });
@@ -92,30 +52,31 @@ async function loadPage(): Promise<void> {
     },
     extract: (tabId) => browser.tabs.sendMessage(tabId, { type: "extractArticle" }),
   });
+  // A watchdog may already have left "reading". A late result must not set busy again.
+  if (session.phase().name !== "reading") return;
   if (!read.ok) {
-    phase = reducePopup(phase, { type: "pageUnread" });
-    render();
+    session.commit({ type: "pageUnread" });
     return;
   }
   const page = previewFromDraft(read.draft);
   const pairing = await queryPaired(dispatch);
+  if (session.phase().name !== "reading") return;
   if (pairing.status === "unreachable") {
-    phase = reducePopup(phase, { type: "nativeUnreachable", page });
-    render();
+    session.commit({ type: "nativeUnreachable", page });
     return;
   }
-  phase = reducePopup(phase, {
+  session.commit({
     type: "pageLoaded",
     page,
     paired: pairing.paired,
     offline: navigator.onLine === false,
   });
-  render();
 }
 
 async function performUpload(): Promise<void> {
-  if (phase.name !== "sending") return;
-  const page = phase.page;
+  const current = session.phase();
+  if (current.name !== "sending") return;
+  const page = current.page;
   console.info("[page-to-paper] popup send started");
   let event;
   try {
@@ -123,11 +84,11 @@ async function performUpload(): Promise<void> {
   } catch {
     event = eventForUploadResult({ ok: false, message: "The Page to Paper app did not answer." });
   }
-  if (phase.name !== "sending") return;
-  phase = reducePopup(phase, event);
-  console.info(`[page-to-paper] popup UI update ${phase.name}`);
-  render();
-  if (phase.name === "success") {
+  if (session.phase().name !== "sending") return;
+  session.commit(event);
+  const updated = session.phase();
+  console.info(`[page-to-paper] popup UI update ${updated.name}`);
+  if (updated.name === "success") {
     dismissTimer = setTimeout(() => {
       finish();
     }, successDismissMs);
@@ -136,8 +97,7 @@ async function performUpload(): Promise<void> {
 
 function finish(): void {
   clearTimeout(dismissTimer);
-  phase = reducePopup(phase, { type: "done" });
-  render();
+  session.commit({ type: "done" });
   window.close();
 }
 
@@ -152,18 +112,14 @@ function runAction(action: PopupAction | undefined, reason: PairingDeepLinkReaso
     return;
   }
   if (action === "send") {
-    const next = reducePopup(phase, { type: "send" });
-    if (next.name !== "sending") return;
-    phase = next;
-    render();
+    session.commit({ type: "send" });
+    if (session.phase().name !== "sending") return;
     void performUpload();
     return;
   }
   if (action === "retry-send") {
-    const next = reducePopup(phase, { type: "retry" });
-    if (next.name !== "sending") return;
-    phase = next;
-    render();
+    session.commit({ type: "retry" });
+    if (session.phase().name !== "sending") return;
     void performUpload();
     return;
   }
@@ -172,13 +128,12 @@ function runAction(action: PopupAction | undefined, reason: PairingDeepLinkReaso
     return;
   }
   if (action === "dismiss") {
-    phase = reducePopup(phase, { type: "acknowledge" });
-    render();
+    session.commit({ type: "acknowledge" });
   }
 }
 
 element("#primary", HTMLButtonElement).addEventListener("click", () => {
-  const view = popupCopy(phase);
+  const view = popupCopy(session.phase());
   if (view.primaryDisabled) return;
   if (view.clearPairing) {
     void clearPairingThenOpen();
@@ -188,18 +143,16 @@ element("#primary", HTMLButtonElement).addEventListener("click", () => {
 });
 
 element("#secondary", HTMLButtonElement).addEventListener("click", () => {
-  const view = popupCopy(phase);
+  const view = popupCopy(session.phase());
   runAction(view.secondaryAction, view.openReason);
 });
 
 window.addEventListener("online", () => {
-  phase = reducePopup(phase, { type: "connectivity", offline: false });
-  render();
+  session.commit({ type: "connectivity", offline: false });
 });
 
 window.addEventListener("offline", () => {
-  phase = reducePopup(phase, { type: "connectivity", offline: true });
-  render();
+  session.commit({ type: "connectivity", offline: true });
 });
 
 void loadPage();

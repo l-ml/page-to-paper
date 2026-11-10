@@ -13,17 +13,27 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     browser.runtime.sendNativeMessage(application, body, callback),
   ).then(
     (value) => {
+      // The reply is already in this worker. Delivering it does not need the native process.
       console.info("[page-to-paper] background → popup ok");
-      sendResponse({ ok: true, value });
+      reply(sendResponse, { ok: true, value });
     },
     (error: unknown) => {
       const text = error instanceof Error ? error.message : "The Page to Paper app did not answer.";
       console.warn(`[page-to-paper] background → popup error ${text}`);
-      sendResponse({ ok: false, message: text });
+      reply(sendResponse, { ok: false, message: text });
     },
   );
   return true;
 });
+
+function reply(sendResponse: (response?: unknown) => void, body: unknown): void {
+  try {
+    sendResponse(body);
+  } catch (error) {
+    const text = error instanceof Error ? error.message : "unknown";
+    console.warn(`[page-to-paper] background → popup reply failed ${text}`);
+  }
+}
 
 function isNativeRequest(message: unknown): message is { type: "nativeRequest"; payload: unknown } {
   return (

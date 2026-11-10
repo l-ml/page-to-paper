@@ -44,6 +44,16 @@ describe("callNative", () => {
 });
 
 describe("requestNative", () => {
+  it("logs popup ← background when the relay returns", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    try {
+      await requestNative({ type: "pairingStatus" }, async () => ({ ok: true, value: { paired: false } }));
+      expect(info.mock.calls.map((call) => String(call[0]))).toContain("[page-to-paper] popup ← background pairingStatus");
+    } finally {
+      info.mockRestore();
+    }
+  });
+
   it("times out when the background never replies, without sending uploadArticle", async () => {
     vi.useFakeTimers();
     const sent: unknown[] = [];

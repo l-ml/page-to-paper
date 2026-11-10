@@ -118,16 +118,24 @@
     ).then(
       (value) => {
         console.info("[page-to-paper] background \u2192 popup ok");
-        sendResponse({ ok: true, value });
+        reply(sendResponse, { ok: true, value });
       },
       (error) => {
         const text = error instanceof Error ? error.message : "The Page to Paper app did not answer.";
         console.warn(`[page-to-paper] background \u2192 popup error ${text}`);
-        sendResponse({ ok: false, message: text });
+        reply(sendResponse, { ok: false, message: text });
       }
     );
     return true;
   });
+  function reply(sendResponse, body) {
+    try {
+      sendResponse(body);
+    } catch (error) {
+      const text = error instanceof Error ? error.message : "unknown";
+      console.warn(`[page-to-paper] background \u2192 popup reply failed ${text}`);
+    }
+  }
   function isNativeRequest(message) {
     return typeof message === "object" && message !== null && !Array.isArray(message) && message.type === "nativeRequest" && "payload" in message;
   }
