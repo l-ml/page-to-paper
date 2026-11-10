@@ -6,7 +6,12 @@ interface BrowserLastError {
 
 interface BrowserRuntime {
   lastError?: BrowserLastError;
-  sendNativeMessage: (application: string, message: unknown) => Promise<unknown>;
+  sendMessage: (message: unknown) => Promise<unknown>;
+  sendNativeMessage: (
+    application: string,
+    message: unknown,
+    callback: (response: unknown) => void,
+  ) => unknown;
   onMessage: {
     addListener: (
       listener: (

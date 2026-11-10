@@ -1,6 +1,22 @@
 import Foundation
 import os
 
+enum KeychainSharing {
+    static let sharedSuffix = "com.example.pagetopaper.shared"
+
+    /// Mirrors `isUsableSharedGroup` in src/keychainGroup.ts.
+    static func isUsableSharedGroup(group: String?, developmentTeam: String?) -> Bool {
+        let team = developmentTeam?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let raw = group?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if team.isEmpty || team.contains("$(") { return false }
+        if raw.isEmpty || raw.contains("$") { return false }
+        if raw == sharedSuffix { return false }
+        let teamID = team.hasSuffix(".") ? String(team.dropLast()) : team
+        if teamID.isEmpty { return false }
+        return raw == teamID + "." + sharedSuffix
+    }
+}
+
 enum AppPreferences {
     static let appGroupID = "group.com.example.pagetopaper"
     static let keychainAccessGroupSuffix = "com.example.pagetopaper.shared"
@@ -18,17 +34,15 @@ enum AppPreferences {
         set { suite()?.set(newValue, forKey: onboardingKey) }
     }
 
-    /// Team-prefixed Keychain access group from the processed Info.plist.
-    /// Nil while the value is still the `$(AppIdentifierPrefix)` placeholder.
+    /// Nil unless the built Info.plist resolved a real development team and a matching access group.
+    /// An empty DEVELOPMENT_TEAM expands away the `$(...)` placeholder, so the check uses the resolved strings.
     static var keychainAccessGroup: String? {
-        guard let configured = Bundle.main.object(forInfoDictionaryKey: "PageToPaperKeychainAccessGroup") as? String else {
+        let group = Bundle.main.object(forInfoDictionaryKey: "PageToPaperKeychainAccessGroup") as? String
+        let team = Bundle.main.object(forInfoDictionaryKey: "PageToPaperDevelopmentTeam") as? String
+        guard KeychainSharing.isUsableSharedGroup(group: group, developmentTeam: team) else {
             return nil
         }
-        let trimmed = configured.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !trimmed.contains("$(") else {
-            return nil
-        }
-        return trimmed
+        return group?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func suite() -> UserDefaults? {

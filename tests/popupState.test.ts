@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { queryPaired } from "../src/capture";
 import type { ArticleDraft } from "../src/messaging";
+import { requestNative } from "../src/nativeCall";
 import {
   errorKindForUploadFailure,
   eventForUploadResult,
@@ -83,18 +83,19 @@ describe("reducePopup", () => {
   it("does not upload when Retry follows a pairingStatus timeout", async () => {
     vi.useFakeTimers();
     try {
-      const calls: unknown[] = [];
-      const pending = queryPaired((_application, body) => {
-        calls.push(body);
+      const calls: string[] = [];
+      const pending = requestNative({ type: "pairingStatus" }, () => {
+        calls.push("background");
         return new Promise(() => {});
       });
+      const assertion = expect(pending).rejects.toThrow(/did not answer/);
       await vi.advanceTimersByTimeAsync(nativeCallTimeoutMs);
-      await expect(pending).resolves.toEqual({ status: "unreachable" });
+      await assertion;
 
       const failed = reducePopup({ name: "reading" }, { type: "nativeUnreachable", page });
       expect(popupCopy(failed).primaryAction).toBe("retry-read");
       expect(reducePopup(failed, { type: "retry" }).name).toBe("reading");
-      expect(calls).toEqual([{ type: "pairingStatus" }]);
+      expect(calls).toEqual(["background"]);
 
       const afterSend = reducePopup(reducePopup(ready(), { type: "send" }), {
         type: "uploadFailed",

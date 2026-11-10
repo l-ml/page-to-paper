@@ -45,7 +45,6 @@
     if (!normalized) return false;
     return forbiddenSecretKeys.some((stem) => normalized.includes(stem));
   }
-  var containingAppNativeId = "application";
   var MessageShapeError = class extends Error {
     constructor(message) {
       super(message);
@@ -176,11 +175,35 @@
     }
     return { paired: value.paired };
   }
-  function sendToContainingApp(message, sendNativeMessage) {
-    if (findForbiddenSecretKey(message)) {
-      return Promise.reject(new MessageShapeError("Messages must not carry secrets."));
+
+  // src/capture.ts
+  async function readActivePage(deps) {
+    const tab = await deps.queryActiveTab();
+    if (tab?.id === void 0) return { ok: false };
+    try {
+      return { ok: true, draft: parseArticleDraft(await deps.extract(tab.id)) };
+    } catch {
+      return { ok: false };
     }
-    return sendNativeMessage(containingAppNativeId, message);
+  }
+  async function queryPaired(dispatch2) {
+    try {
+      const raw = await dispatch2({ type: messageTypes.pairingStatus });
+      return { status: "known", paired: parsePairingStatus(raw).paired };
+    } catch {
+      return { status: "unreachable" };
+    }
+  }
+  async function uploadDraft(draft, dispatch2) {
+    try {
+      const raw = await dispatch2(buildUploadRequest(draft));
+      return parseUploadResult(raw);
+    } catch {
+      return { ok: false, message: "The Page to Paper app did not answer." };
+    }
+  }
+  async function clearStoredPairing(dispatch2) {
+    await dispatch2({ type: messageTypes.clearPairing });
   }
 
   // src/popupState.ts
@@ -420,60 +443,41 @@
     };
   }
 
-  // src/capture.ts
-  async function readActivePage(deps) {
-    const tab = await deps.queryActiveTab();
-    if (tab?.id === void 0) return { ok: false };
-    try {
-      return { ok: true, draft: parseArticleDraft(await deps.extract(tab.id)) };
-    } catch {
-      return { ok: false };
-    }
-  }
-  async function queryPaired(sendNative) {
-    try {
-      const raw = await sendToContainingApp(
-        { type: messageTypes.pairingStatus },
-        (application, body) => withTimeout(sendNative(application, body))
-      );
-      return { status: "known", paired: parsePairingStatus(raw).paired };
-    } catch {
-      return { status: "unreachable" };
-    }
-  }
-  async function uploadDraft(draft, sendNative) {
-    try {
-      const raw = await sendToContainingApp(
-        buildUploadRequest(draft),
-        (application, body) => withTimeout(sendNative(application, body))
-      );
-      return parseUploadResult(raw);
-    } catch {
-      return { ok: false, message: "The Page to Paper app did not answer." };
-    }
-  }
-  async function clearStoredPairing(sendNative) {
-    await sendToContainingApp(
-      { type: messageTypes.clearPairing },
-      (application, body) => withTimeout(sendNative(application, body))
-    );
-  }
-  function withTimeout(work) {
+  // src/nativeCall.ts
+  var timeoutMessage = "The Page to Paper app did not answer.";
+  function requestNative(message, sendMessage) {
+    const type = messageType(message);
+    console.info(`[page-to-paper] popup \u2192 background ${type}`);
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
-        reject(new Error("The Page to Paper app did not answer."));
+        console.warn(`[page-to-paper] popup timeout ${type}`);
+        reject(new Error(timeoutMessage));
       }, nativeCallTimeoutMs);
-      work.then(
-        (value) => {
+      sendMessage({ type: "nativeRequest", payload: message }).then(
+        (response) => {
           clearTimeout(timer);
-          resolve(value);
+          console.info(`[page-to-paper] popup \u2190 background ${type}`);
+          if (isRecord2(response) && response.ok === true && "value" in response) {
+            resolve(response.value);
+            return;
+          }
+          const detail = isRecord2(response) && typeof response.message === "string" ? response.message : timeoutMessage;
+          reject(new Error(detail));
         },
         (error) => {
           clearTimeout(timer);
-          reject(error);
+          console.warn(`[page-to-paper] popup background error ${type}`);
+          reject(error instanceof Error ? error : new Error(timeoutMessage));
         }
       );
     });
+  }
+  function messageType(message) {
+    if (isRecord2(message) && typeof message.type === "string") return message.type;
+    return "unknown";
+  }
+  function isRecord2(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
   }
 
   // src/popup.ts
@@ -486,8 +490,8 @@
     }
     return node;
   }
-  function nativeSend(application, body) {
-    return browser.runtime.sendNativeMessage(application, body);
+  function dispatch(message) {
+    return requestNative(message, (body) => browser.runtime.sendMessage(body));
   }
   function render() {
     const view2 = popupCopy(phase);
@@ -530,7 +534,7 @@
   }
   async function clearPairingThenOpen() {
     try {
-      await clearStoredPairing(nativeSend);
+      await clearStoredPairing(dispatch);
     } catch {
     }
     window.location.href = pairingDeepLink("expired");
@@ -552,7 +556,7 @@
       return;
     }
     const page = previewFromDraft(read.draft);
-    const pairing = await queryPaired(nativeSend);
+    const pairing = await queryPaired(dispatch);
     if (pairing.status === "unreachable") {
       phase = reducePopup(phase, { type: "nativeUnreachable", page });
       render();
@@ -569,14 +573,16 @@
   async function performUpload() {
     if (phase.name !== "sending") return;
     const page = phase.page;
+    console.info("[page-to-paper] popup send started");
     let event;
     try {
-      event = eventForUploadResult(await uploadDraft(page.draft, nativeSend));
+      event = eventForUploadResult(await uploadDraft(page.draft, dispatch));
     } catch {
       event = eventForUploadResult({ ok: false, message: "The Page to Paper app did not answer." });
     }
     if (phase.name !== "sending") return;
     phase = reducePopup(phase, event);
+    console.info(`[page-to-paper] popup UI update ${phase.name}`);
     render();
     if (phase.name === "success") {
       dismissTimer = setTimeout(() => {

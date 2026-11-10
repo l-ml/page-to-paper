@@ -38,6 +38,9 @@ def main() -> int:
             schemes = data["CFBundleURLTypes"][0]["CFBundleURLSchemes"]
             if schemes != ["pagetopaper"]:
                 raise SystemExit(f"url schemes {schemes}")
+        if path.name == "Info.plist":
+            if data.get("PageToPaperDevelopmentTeam") != "$(DEVELOPMENT_TEAM)":
+                raise SystemExit(f"missing resolved team key in {path}")
         if path.name.endswith(".entitlements"):
             groups = data["com.apple.security.application-groups"]
             keychain = data["keychain-access-groups"]

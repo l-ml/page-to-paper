@@ -37,7 +37,7 @@ Shared Swift types are `AppPreferences`, `ArticleDraft`, `ArticleConverter`, `Ex
 
 These must be replaced before you sign or ship a build. They are not registered to this project.
 
-While `PageToPaperKeychainAccessGroup` is still the `$(AppIdentifierPrefix)` placeholder, the app and the extension do not share a keychain. Each would otherwise write into its own private keychain, and a token stored by one side would be invisible to the other. This build refuses that: `TokenStore` logs the failure and, in DEBUG, asserts when a write is attempted. Pairing is not stored until the access group is a real, signed team-prefixed value. Preferences never fall back to `UserDefaults.standard` if the App Group suite cannot be opened. In DEBUG the app shows that failure; otherwise onboarding is simply not recorded.
+Xcode expands `$(AppIdentifierPrefix)` and `$(DEVELOPMENT_TEAM)` before the app runs. With no development team those values become empty or the bare suffix `com.example.pagetopaper.shared`, not the literal `$(...)` text, and the simulator will still accept a private keychain write. Pairing is stored only when the resolved team id and access group match `TeamID.com.example.pagetopaper.shared`. Otherwise `TokenStore` refuses the write, logs it, and asserts in DEBUG. Connected is shown only after that write is read back unchanged. Preferences never fall back to `UserDefaults.standard` if the App Group suite cannot be opened. In DEBUG the app shows that failure; otherwise onboarding is simply not recorded.
 
 | Use | Value |
 | --- | --- |

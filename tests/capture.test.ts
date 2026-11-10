@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { queryPaired, readActivePage, uploadDraft } from "../src/capture";
-import { nativeCallTimeoutMs } from "../src/popupState";
 
 const extracted = {
   type: "articleDraft",
@@ -39,9 +38,9 @@ describe("readActivePage", () => {
 
 describe("native calls", () => {
   it("asks only for pairing status while preparing", async () => {
-    const sendNative = vi.fn(async () => ({ paired: true }));
-    await expect(queryPaired(sendNative)).resolves.toEqual({ status: "known", paired: true });
-    expect(sendNative).toHaveBeenCalledWith("application", { type: "pairingStatus" });
+    const dispatch = vi.fn(async () => ({ paired: true }));
+    await expect(queryPaired(dispatch)).resolves.toEqual({ status: "known", paired: true });
+    expect(dispatch).toHaveBeenCalledWith({ type: "pairingStatus" });
   });
 
   it("reports an unreachable app instead of not paired", async () => {
@@ -51,30 +50,18 @@ describe("native calls", () => {
     await expect(queryPaired(async () => ({ paired: false }))).resolves.toEqual({ status: "known", paired: false });
   });
 
-  it("stops waiting after the native-call timeout", async () => {
-    vi.useFakeTimers();
-    try {
-      const hung = queryPaired(() => new Promise(() => {}));
-      await vi.advanceTimersByTimeAsync(nativeCallTimeoutMs);
-      await expect(hung).resolves.toEqual({ status: "unreachable" });
-      expect(nativeCallTimeoutMs).toBe(10_000);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
   it("uploads only when uploadDraft is called", async () => {
-    const sendNative = vi.fn(async () => ({ ok: true, message: "Stub accepted. Nothing was uploaded." }));
+    const dispatch = vi.fn(async () => ({ ok: true, message: "Stub accepted. Nothing was uploaded.", implemented: false }));
     const result = await uploadDraft(
       { title: "Dispatch", url: "https://news.example/dispatch", byline: "Sam" },
-      sendNative,
+      dispatch,
     );
-    expect(sendNative).toHaveBeenCalledOnce();
-    expect(sendNative).toHaveBeenCalledWith("application", {
+    expect(dispatch).toHaveBeenCalledOnce();
+    expect(dispatch).toHaveBeenCalledWith({
       type: "uploadArticle",
       draft: { title: "Dispatch", url: "https://news.example/dispatch", byline: "Sam" },
     });
-    expect(result.ok).toBe(true);
+    expect(result.implemented).toBe(false);
   });
 
   it("reports when the app does not answer", async () => {

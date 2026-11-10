@@ -13,14 +13,16 @@ describe("extension sources", () => {
     const content = read("src/content.ts");
     const messaging = read("src/messaging.ts");
 
-    expect(read("src/capture.ts")).toContain("sendToContainingApp");
+    expect(read("src/nativeCall.ts")).toContain("nativeCallTimeoutMs");
     expect(popup).toContain("assignPairingLink");
     expect(popup).toContain("uploadDraft");
+    expect(popup).toContain("requestNative");
+    expect(popup).not.toContain("sendNativeMessage");
     expect(popup).toContain("window.location");
     expect(popup).not.toContain("NSExtensionContext");
     expect(popup).not.toContain("localStorage");
     expect(popup).not.toContain("browser.storage");
-    expect(background).not.toContain("sendNativeMessage");
+    expect(background).toContain("sendNativeMessage");
     expect(content).not.toContain("sendNativeMessage");
     expect(messaging).toContain('containingAppNativeId = "application"');
 
@@ -42,6 +44,10 @@ describe("extension sources", () => {
     }
     expect(secrets).toContain("precomposedStringWithCompatibilityMapping");
     expect(secrets).toContain("value > 127");
+    expect(read("PageToPaper/Shared/AppPreferences.swift")).toContain("isUsableSharedGroup");
+    expect(read("PageToPaper/Shared/RemarkableAuth.swift")).toContain("stored == data");
+    expect(read("PageToPaper/Extension/SafariWebExtensionHandler.swift")).toContain("category: \"native-message\"");
+    expect(read("PageToPaper/Extension/SafariWebExtensionHandler.swift")).toContain("completeRequest");
     expect(read("PageToPaper/Shared/RemarkableCloudClient.swift")).toContain("Nothing was uploaded");
     const handler = read("PageToPaper/Extension/SafariWebExtensionHandler.swift");
     expect(handler).toContain('static let key = "message"');

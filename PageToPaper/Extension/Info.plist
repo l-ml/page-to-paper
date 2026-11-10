@@ -27,6 +27,8 @@
 		<key>NSExtensionPrincipalClass</key>
 		<string>$(PRODUCT_MODULE_NAME).SafariWebExtensionHandler</string>
 	</dict>
+	<key>PageToPaperDevelopmentTeam</key>
+	<string>$(DEVELOPMENT_TEAM)</string>
 	<key>PageToPaperKeychainAccessGroup</key>
 	<string>$(AppIdentifierPrefix)com.example.pagetopaper.shared</string>
 </dict>

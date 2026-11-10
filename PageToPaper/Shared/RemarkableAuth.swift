@@ -20,11 +20,15 @@ struct RemarkableAuth {
         }
         do {
             try store.save(data)
+            guard let stored = try store.load(), stored == data else {
+                return false
+            }
         } catch {
             return false
         }
-        return isPaired()
+        return true
     }
+}
 
     func signOut() {
         try? store.delete()

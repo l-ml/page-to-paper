@@ -1,5 +1,6 @@
 import { assignPairingLink, pairingDeepLink, type PairingDeepLinkReason } from "./appLink";
 import { clearStoredPairing, queryPaired, readActivePage, uploadDraft } from "./capture";
+import { requestNative } from "./nativeCall";
 import {
   eventForUploadResult,
   initialPopup,
@@ -22,8 +23,8 @@ function element<T extends Element>(selector: string, ctor: new () => T): T {
   return node;
 }
 
-function nativeSend(application: string, body: unknown): Promise<unknown> {
-  return browser.runtime.sendNativeMessage(application, body);
+function dispatch(message: unknown): Promise<unknown> {
+  return requestNative(message, (body) => browser.runtime.sendMessage(body));
 }
 
 function render(): void {
@@ -73,7 +74,7 @@ function openApp(reason: PairingDeepLinkReason): void {
 
 async function clearPairingThenOpen(): Promise<void> {
   try {
-    await clearStoredPairing(nativeSend);
+    await clearStoredPairing(dispatch);
   } catch {
     // Still open the app. The token was already unusable.
   }
@@ -97,7 +98,7 @@ async function loadPage(): Promise<void> {
     return;
   }
   const page = previewFromDraft(read.draft);
-  const pairing = await queryPaired(nativeSend);
+  const pairing = await queryPaired(dispatch);
   if (pairing.status === "unreachable") {
     phase = reducePopup(phase, { type: "nativeUnreachable", page });
     render();
@@ -115,14 +116,16 @@ async function loadPage(): Promise<void> {
 async function performUpload(): Promise<void> {
   if (phase.name !== "sending") return;
   const page = phase.page;
+  console.info("[page-to-paper] popup send started");
   let event;
   try {
-    event = eventForUploadResult(await uploadDraft(page.draft, nativeSend));
+    event = eventForUploadResult(await uploadDraft(page.draft, dispatch));
   } catch {
     event = eventForUploadResult({ ok: false, message: "The Page to Paper app did not answer." });
   }
   if (phase.name !== "sending") return;
   phase = reducePopup(phase, event);
+  console.info(`[page-to-paper] popup UI update ${phase.name}`);
   render();
   if (phase.name === "success") {
     dismissTimer = setTimeout(() => {

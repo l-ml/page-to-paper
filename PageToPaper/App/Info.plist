@@ -33,6 +33,8 @@
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>PageToPaperDevelopmentTeam</key>
+	<string>$(DEVELOPMENT_TEAM)</string>
 	<key>PageToPaperKeychainAccessGroup</key>
 	<string>$(AppIdentifierPrefix)com.example.pagetopaper.shared</string>
 	<key>UIApplicationSceneManifest</key>
