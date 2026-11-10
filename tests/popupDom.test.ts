@@ -47,16 +47,9 @@ function primary(): HTMLButtonElement {
   return node;
 }
 
-/** Visible means the spinner itself is painted, not merely present in the button. */
+/** Painted display from popup.css. The hidden attribute is not consulted. */
 function spinnerVisible(): boolean {
-  const node = spinner();
-  if (getComputedStyle(node).display === "none") return false;
-  let current: HTMLElement | null = node;
-  while (current) {
-    if (current.hidden || getComputedStyle(current).display === "none") return false;
-    current = current.parentElement;
-  }
-  return true;
+  return getComputedStyle(spinner()).display !== "none";
 }
 
 function errorPhase(kind: ErrorKind): PopupPhase {
