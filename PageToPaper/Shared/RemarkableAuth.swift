@@ -28,7 +28,6 @@ struct RemarkableAuth {
         }
         return true
     }
-}
 
     func signOut() {
         try? store.delete()
