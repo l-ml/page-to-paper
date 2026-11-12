@@ -128,7 +128,7 @@ function runAction(action: PopupAction | undefined, reason: PairingDeepLinkReaso
     return;
   }
   if (action === "dismiss") {
-    session.commit({ type: "acknowledge" });
+    session.commit({ type: "acknowledge", offline: navigator.onLine === false });
   }
 }
 

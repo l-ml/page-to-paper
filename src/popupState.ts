@@ -1,22 +1,13 @@
 import type { PairingDeepLinkReason } from "./appLink";
-import type { ArticleDraft } from "./messaging";
+import { uploadErrorKinds, type ArticleDraft, type UploadErrorKind } from "./messaging";
 
 export const successDismissMs = 1200;
 export const nativeCallTimeoutMs = 10_000;
 export const unavailableDetail = "Sending to your reMarkable isn't implemented in this build.";
 
-export const errorKinds = [
-  "network",
-  "notPaired",
-  "authExpired",
-  "rateLimit",
-  "unsupportedPage",
-  "appUnreachable",
-  "unknown",
-  "pageUnread",
-] as const;
+export const errorKinds = uploadErrorKinds;
 
-export type ErrorKind = (typeof errorKinds)[number];
+export type ErrorKind = UploadErrorKind;
 
 export interface PagePreview {
   title: string;
@@ -43,7 +34,7 @@ export type PopupEvent =
   | { type: "uploadFailed"; kind: ErrorKind }
   | { type: "nativeUnreachable"; page?: PagePreview }
   | { type: "retry" }
-  | { type: "acknowledge" }
+  | { type: "acknowledge"; offline?: boolean }
   | { type: "done" }
   | { type: "connectivity"; offline: boolean }
   | { type: "busyTimeout" };
@@ -125,9 +116,10 @@ export function reducePopup(state: PopupPhase, event: PopupEvent): PopupPhase {
       }
       if (state.kind === "rateLimit" || state.kind === "unsupportedPage") return state;
       return { name: "sending", page: state.page, busy: true };
-    case "acknowledge":
+    case "acknowledge": {
+      const offline = event.offline === true;
       if (state.name === "unavailable") {
-        return { name: "ready", page: state.page, paired: true, offline: false, busy: false };
+        return { name: "ready", page: state.page, paired: true, offline, busy: false };
       }
       if (state.name !== "error") return state;
       if (!state.page) return { name: "idle", busy: false };
@@ -135,9 +127,10 @@ export function reducePopup(state: PopupPhase, event: PopupEvent): PopupPhase {
         name: "ready",
         page: state.page,
         paired: state.kind !== "notPaired" && state.kind !== "authExpired",
-        offline: false,
+        offline,
         busy: false,
       };
+    }
     case "done":
       if (state.name !== "success") return state;
       return { name: "idle", busy: false };
@@ -220,17 +213,18 @@ export function eventForUploadResult(result: {
   ok: boolean;
   message: string;
   implemented?: boolean;
+  errorKind?: ErrorKind;
 }): PopupEvent {
   if (result.ok && result.implemented === true) return { type: "uploadSucceeded" };
   if (result.ok) return { type: "uploadUnavailable" };
+  if (result.errorKind) return { type: "uploadFailed", kind: result.errorKind };
   return { type: "uploadFailed", kind: errorKindForUploadFailure(result.message) };
 }
 
+/** Fallback when the app omits `errorKind`. Never returns a kind that clears the stored token. */
 export function errorKindForUploadFailure(message: string): ErrorKind {
   const text = message.toLowerCase();
-  if (text.includes("expir") || text.includes("sign in")) return "authExpired";
-  if (text.includes("not paired") || text.includes("pair")) return "notPaired";
-  if (text.includes("too many") || text.includes("rate")) return "rateLimit";
+  if (/\btoo many\b/.test(text) || /\brate\b/.test(text)) return "rateLimit";
   if (text.includes("offline") || text.includes("network") || text.includes("connection")) return "network";
   if (text.includes("did not answer") || text.includes("unreadable") || text.includes("empty message")) {
     return "appUnreachable";

@@ -134,6 +134,12 @@ describe("parseUploadResult", () => {
       message: "Not sent",
       documentId: "doc-1",
     });
+    expect(parseUploadResult({ ok: false, message: "Not paired.", errorKind: "notPaired" })).toEqual({
+      ok: false,
+      message: "Not paired.",
+      errorKind: "notPaired",
+    });
+    expect(parseUploadResult({ ok: false, message: "Nope", errorKind: "made-up" }).errorKind).toBeUndefined();
   });
 
   it("turns an unreadable or secret-bearing payload into a failure", () => {

@@ -38,10 +38,10 @@ enum MessageSecrets {
 enum ExtensionMessageRouter {
     static func respond(to body: [String: Any]?) -> [String: Any] {
         guard let body else {
-            return failure("Empty message from the extension.")
+            return failure("Empty message from the extension.", kind: "appUnreachable")
         }
         if MessageSecrets.containsSecret(body) {
-            return failure("Refusing a message that carries secrets.")
+            return failure("Refusing a message that carries secrets.", kind: "unknown")
         }
         if (body["type"] as? String) == "pairingStatus" {
             return ["paired": RemarkableAuth().isPaired()]
@@ -51,15 +51,15 @@ enum ExtensionMessageRouter {
             return ["ok": true, "cleared": true]
         }
         guard (body["type"] as? String) == "uploadArticle" else {
-            return failure("Unsupported message.")
+            return failure("Unsupported message.", kind: "unknown")
         }
         guard let draft = ArticleDraft.parse(from: body["draft"]) else {
-            return failure("The article needs a title and an http(s) URL.")
+            return failure("The article needs a title and an http(s) URL.", kind: "unsupportedPage")
         }
         return RemarkableCloudClient().upload(draft).asDictionary
     }
 
-    private static func failure(_ message: String) -> [String: Any] {
-        UploadResult(ok: false, message: message, documentId: nil).asDictionary
+    private static func failure(_ message: String, kind: String) -> [String: Any] {
+        UploadResult(ok: false, message: message, documentId: nil, errorKind: kind).asDictionary
     }
 }

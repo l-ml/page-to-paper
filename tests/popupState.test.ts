@@ -120,6 +120,21 @@ describe("reducePopup", () => {
     expect(reducePopup(limited, { type: "acknowledge" }).name).toBe("ready");
     expect(reducePopup(limited, { type: "retry" })).toEqual(limited);
   });
+
+  it("keeps Send disabled when OK is tapped while offline", () => {
+    const sending = reducePopup(ready(), { type: "send" });
+    const limited = reducePopup(sending, { type: "uploadFailed", kind: "rateLimit" });
+    const back = reducePopup(limited, { type: "acknowledge", offline: true });
+    expect(back).toMatchObject({ name: "ready", offline: true, paired: true });
+    expect(popupCopy(back).primaryDisabled).toBe(true);
+    expect(popupCopy(ready({ offline: true })).primaryDisabled).toBe(true);
+
+    const stub = reducePopup(sending, { type: "uploadUnavailable" });
+    const dismissed = reducePopup(stub, { type: "acknowledge", offline: true });
+    expect(dismissed).toMatchObject({ name: "ready", offline: true });
+    expect(popupCopy(dismissed).primaryDisabled).toBe(true);
+    expect(popupCopy(reducePopup(limited, { type: "acknowledge", offline: false })).primaryDisabled).toBe(false);
+  });
 });
 
 describe("popupCopy", () => {
@@ -257,10 +272,23 @@ describe("errorKindForUploadFailure", () => {
     expect(errorKindForUploadFailure("The article needs a title and an http(s) URL.")).toBe("unsupportedPage");
     expect(errorKindForUploadFailure("The Page to Paper app did not answer.")).toBe("appUnreachable");
     expect(errorKindForUploadFailure("Empty message from the extension.")).toBe("appUnreachable");
-    expect(errorKindForUploadFailure("Not paired.")).toBe("notPaired");
-    expect(errorKindForUploadFailure("Session expired.")).toBe("authExpired");
+    expect(errorKindForUploadFailure("Not paired.")).toBe("unknown");
+    expect(errorKindForUploadFailure("Session expired.")).toBe("unknown");
+    expect(errorKindForUploadFailure("Couldn't generate the EPUB.")).toBe("unsupportedPage");
+    expect(errorKindForUploadFailure("please separate files")).toBe("unknown");
+    expect(errorKindForUploadFailure("Device impaired")).toBe("unknown");
     expect(errorKindForUploadFailure("Too many requests.")).toBe("rateLimit");
     expect(errorKindForUploadFailure("Network offline.")).toBe("network");
     expect(errorKindForUploadFailure("Refusing a message that carries secrets.")).toBe("unknown");
+  });
+
+  it("uses an explicit errorKind and does not clear pairing from message text", () => {
+    const sending = reducePopup(ready(), { type: "send" });
+    const explicit = reducePopup(sending, eventForUploadResult({ ok: false, message: "Device impaired", errorKind: "notPaired" }));
+    expect(explicit).toMatchObject({ name: "error", kind: "notPaired" });
+    expect(popupCopy(explicit).clearPairing).toBe(true);
+    const guessed = reducePopup(sending, eventForUploadResult({ ok: false, message: "Not paired." }));
+    expect(guessed).toMatchObject({ name: "error", kind: "unknown" });
+    expect(popupCopy(guessed).clearPairing).toBeUndefined();
   });
 });

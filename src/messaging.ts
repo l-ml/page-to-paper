@@ -60,12 +60,28 @@ export interface UploadRequest {
   draft: ArticleDraft;
 }
 
+/** Kinds the app may set on a failed upload. The popup must not invent the token-clearing ones from message text. */
+export const uploadErrorKinds = [
+  "network",
+  "notPaired",
+  "authExpired",
+  "rateLimit",
+  "unsupportedPage",
+  "appUnreachable",
+  "unknown",
+  "pageUnread",
+] as const;
+
+export type UploadErrorKind = (typeof uploadErrorKinds)[number];
+
 export interface UploadResult {
   ok: boolean;
   message: string;
   documentId?: string;
   /** True only when a real upload happened. The stub omits this or sets it false. */
   implemented?: boolean;
+  /** Set by the app. Absent results fall back to a message heuristic that cannot clear pairing. */
+  errorKind?: UploadErrorKind;
 }
 
 export class MessageShapeError extends Error {
@@ -189,6 +205,9 @@ export function parseUploadResult(value: unknown): UploadResult {
   }
   const result: UploadResult = { ok: value.ok, message };
   if (typeof value.implemented === "boolean") result.implemented = value.implemented;
+  if (typeof value.errorKind === "string" && (uploadErrorKinds as readonly string[]).includes(value.errorKind)) {
+    result.errorKind = value.errorKind as UploadErrorKind;
+  }
   if (value.documentId !== undefined && value.documentId !== null) {
     if (typeof value.documentId !== "string") {
       return { ok: false, message: "The app returned an unreadable result." };

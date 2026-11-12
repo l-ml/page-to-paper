@@ -28,6 +28,7 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 "ok": false,
                 "implemented": false,
                 "message": "Empty message from the extension.",
+                "errorKind": "appUnreachable",
             ]
         }
         let body = item.userInfo?[SafariExtensionMessage.key] as? [String: Any]

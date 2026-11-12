@@ -97,7 +97,7 @@ Extension JavaScript and the native handler share one shape. No token fields are
 | Popup to the app, before Send | `{ "type": "pairingStatus" }` |
 | App to the popup | `{ "paired": true/false }` |
 | Popup to the app, after Send | `{ "type": "uploadArticle", "draft": { "title", "url", "html"?, "byline"? } }` |
-| App to the popup | `{ "ok", "message", "documentId"? }` |
+| App to the popup | `{ "ok", "message", "documentId"?, "errorKind"? }` |
 
 The pairing code is 8 letters or digits from `https://my.remarkable.com/device/browser/connect`. The app trims it, lowercases it, and strips spaces and hyphens before checking `^[a-z0-9]{8}$`. Pair stays disabled until that matches. The app does not call the site.
 

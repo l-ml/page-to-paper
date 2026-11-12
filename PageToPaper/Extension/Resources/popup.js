@@ -45,6 +45,16 @@
     if (!normalized) return false;
     return forbiddenSecretKeys.some((stem) => normalized.includes(stem));
   }
+  var uploadErrorKinds = [
+    "network",
+    "notPaired",
+    "authExpired",
+    "rateLimit",
+    "unsupportedPage",
+    "appUnreachable",
+    "unknown",
+    "pageUnread"
+  ];
   var MessageShapeError = class extends Error {
     constructor(message) {
       super(message);
@@ -154,6 +164,9 @@
     }
     const result = { ok: value.ok, message };
     if (typeof value.implemented === "boolean") result.implemented = value.implemented;
+    if (typeof value.errorKind === "string" && uploadErrorKinds.includes(value.errorKind)) {
+      result.errorKind = value.errorKind;
+    }
     if (value.documentId !== void 0 && value.documentId !== null) {
       if (typeof value.documentId !== "string") {
         return { ok: false, message: "The app returned an unreadable result." };
@@ -263,9 +276,10 @@
         }
         if (state.kind === "rateLimit" || state.kind === "unsupportedPage") return state;
         return { name: "sending", page: state.page, busy: true };
-      case "acknowledge":
+      case "acknowledge": {
+        const offline = event.offline === true;
         if (state.name === "unavailable") {
-          return { name: "ready", page: state.page, paired: true, offline: false, busy: false };
+          return { name: "ready", page: state.page, paired: true, offline, busy: false };
         }
         if (state.name !== "error") return state;
         if (!state.page) return { name: "idle", busy: false };
@@ -273,9 +287,10 @@
           name: "ready",
           page: state.page,
           paired: state.kind !== "notPaired" && state.kind !== "authExpired",
-          offline: false,
+          offline,
           busy: false
         };
+      }
       case "done":
         if (state.name !== "success") return state;
         return { name: "idle", busy: false };
@@ -351,13 +366,12 @@
   function eventForUploadResult(result) {
     if (result.ok && result.implemented === true) return { type: "uploadSucceeded" };
     if (result.ok) return { type: "uploadUnavailable" };
+    if (result.errorKind) return { type: "uploadFailed", kind: result.errorKind };
     return { type: "uploadFailed", kind: errorKindForUploadFailure(result.message) };
   }
   function errorKindForUploadFailure(message) {
     const text = message.toLowerCase();
-    if (text.includes("expir") || text.includes("sign in")) return "authExpired";
-    if (text.includes("not paired") || text.includes("pair")) return "notPaired";
-    if (text.includes("too many") || text.includes("rate")) return "rateLimit";
+    if (/\btoo many\b/.test(text) || /\brate\b/.test(text)) return "rateLimit";
     if (text.includes("offline") || text.includes("network") || text.includes("connection")) return "network";
     if (text.includes("did not answer") || text.includes("unreadable") || text.includes("empty message")) {
       return "appUnreachable";
@@ -683,7 +697,7 @@
       return;
     }
     if (action === "dismiss") {
-      session.commit({ type: "acknowledge" });
+      session.commit({ type: "acknowledge", offline: navigator.onLine === false });
     }
   }
   element2("#primary", HTMLButtonElement).addEventListener("click", () => {
