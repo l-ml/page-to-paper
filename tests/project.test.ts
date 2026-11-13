@@ -71,18 +71,14 @@ describe("checked-in project files", () => {
     const manifest = JSON.parse(read("PageToPaper/Extension/Resources/manifest.json"));
     expect(manifest.manifest_version).toBe(3);
     expect(manifest.name).toBe("Page to Paper");
-    expect(manifest.permissions).toEqual(["activeTab", "nativeMessaging"]);
+    expect(manifest.permissions).toEqual(["activeTab", "scripting", "nativeMessaging"]);
     expect(manifest.host_permissions).toBeUndefined();
+    expect(manifest.content_scripts).toBeUndefined();
+    expect(JSON.stringify(manifest)).not.toMatch(/https?:\/\//);
     expect(manifest.background).toEqual({ service_worker: "background.js" });
     expect(manifest.background.persistent).toBeUndefined();
     expect(manifest.action.default_popup).toBe("popup.html");
-    expect(manifest.content_scripts).toEqual([
-      {
-        matches: ["http://*/*", "https://*/*"],
-        js: ["content.js"],
-        run_at: "document_idle",
-      },
-    ]);
+    expect(read("src/popup.ts")).toContain('files: ["content.js"]');
 
     for (const name of ["background.js", "content.js", "popup.js"]) {
       const source = read(`PageToPaper/Extension/Resources/${name}`);

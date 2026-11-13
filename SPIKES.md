@@ -22,6 +22,6 @@ The Keychain slot in `TokenStore` is empty in this scaffold. The extension never
 
 ## Cross-origin images under activeTab
 
-The manifest asks only for `activeTab` and `nativeMessaging`. A content script is registered for `http` and `https` pages so the popup can ask for the title and URL. Article HTML and images are not captured yet.
+The manifest asks for `activeTab`, `scripting`, and `nativeMessaging`. The popup injects `content.js` into the active tab when it opens. Article HTML and images are not captured yet.
 
 Before an EPUB includes images, check what Safari on iOS actually grants when the toolbar button is used: whether `activeTab` can read cross-origin images on that page, and whether a narrower host permission is required. Do not widen the manifest until that is known.

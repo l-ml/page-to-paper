@@ -10,10 +10,13 @@ const extracted = {
 
 describe("readActivePage", () => {
   it("returns a draft and has no native upload", async () => {
+    const inject = vi.fn(async () => {});
     const result = await readActivePage({
       queryActiveTab: async () => ({ id: 7 }),
+      inject,
       extract: async () => extracted,
     });
+    expect(inject).toHaveBeenCalledWith(7);
     expect(result).toEqual({
       ok: true,
       draft: { title: "Dispatch", url: "https://news.example/dispatch", byline: "Sam" },
@@ -21,16 +24,20 @@ describe("readActivePage", () => {
   });
 
   it("fails closed when the page cannot be read", async () => {
+    const extract = vi.fn(async () => extracted);
     const unread = await readActivePage({
       queryActiveTab: async () => ({ id: 3 }),
-      extract: async () => {
-        throw new Error("Receiving end does not exist.");
+      inject: async () => {
+        throw new Error("Cannot access a safari-internal page.");
       },
+      extract,
     });
     const invalid = await readActivePage({
       queryActiveTab: async () => ({ id: 3 }),
+      inject: async () => {},
       extract: async () => ({ type: "articleDraft", title: "Nope", url: "file:///tmp/a" }),
     });
+    expect(extract).not.toHaveBeenCalled();
     expect(unread).toEqual({ ok: false });
     expect(invalid).toEqual({ ok: false });
   });

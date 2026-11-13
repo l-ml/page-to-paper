@@ -70,9 +70,15 @@
     if (byline) draft.byline = byline;
     return draft;
   }
-  browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (!isExtractRequest(message)) return;
-    sendResponse(extractDraft());
-    return true;
-  });
+  function installReader() {
+    const scope = globalThis;
+    if (scope.__pageToPaperReader) return;
+    scope.__pageToPaperReader = true;
+    browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      if (!isExtractRequest(message)) return;
+      sendResponse(extractDraft());
+      return true;
+    });
+  }
+  installReader();
 })();

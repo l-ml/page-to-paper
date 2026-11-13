@@ -3,7 +3,7 @@
   "name": "Page to Paper",
   "description": "Send the current Safari page to your reMarkable Cloud Inbox. This build is a scaffold and does not upload.",
   "version": "0.1.0",
-  "permissions": ["activeTab", "nativeMessaging"],
+  "permissions": ["activeTab", "scripting", "nativeMessaging"],
   "background": {
     "service_worker": "background.js"
   },
@@ -23,12 +23,5 @@
     "128": "icon-128.png",
     "256": "icon-256.png",
     "512": "icon-512.png"
-  },
-  "content_scripts": [
-    {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
-    }
-  ]
+  }
 }

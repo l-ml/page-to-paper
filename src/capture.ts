@@ -10,6 +10,8 @@ import {
 
 export interface ReadDependencies {
   queryActiveTab: () => Promise<{ id?: number } | undefined>;
+  /** Inject the reader into the active tab. Throws when the page refuses injection. */
+  inject: (tabId: number) => Promise<void>;
   extract: (tabId: number) => Promise<unknown>;
 }
 
@@ -21,6 +23,7 @@ export async function readActivePage(deps: ReadDependencies): Promise<{ ok: true
   const tab = await deps.queryActiveTab();
   if (tab?.id === undefined) return { ok: false };
   try {
+    await deps.inject(tab.id);
     return { ok: true, draft: parseArticleDraft(await deps.extract(tab.id)) };
   } catch {
     return { ok: false };

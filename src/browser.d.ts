@@ -35,9 +35,14 @@ interface BrowserTabs {
   sendMessage: (tabId: number, message: unknown) => Promise<unknown>;
 }
 
+interface BrowserScripting {
+  executeScript: (injection: { target: { tabId: number }; files: string[] }) => Promise<unknown>;
+}
+
 declare global {
   const browser: {
     runtime: BrowserRuntime;
     tabs: BrowserTabs;
+    scripting: BrowserScripting;
   };
 }

@@ -50,6 +50,9 @@ async function loadPage(): Promise<void> {
       const tabs = await browser.tabs.query({ active: true, currentWindow: true });
       return tabs[0];
     },
+    inject: async (tabId) => {
+      await browser.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
+    },
     extract: (tabId) => browser.tabs.sendMessage(tabId, { type: "extractArticle" }),
   });
   // A watchdog may already have left "reading". A late result must not set busy again.

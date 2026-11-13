@@ -10,7 +10,7 @@ v1 is the Safari extension only. There is no Share Sheet and no folder picker. T
 
 The happy path is wired, and every network and file step is a stub.
 
-1. The popup reads the page title and host. It does not upload on open.
+1. The popup injects a reader into the active tab, then reads the page title and host. It does not upload on open. Pages that refuse injection show an error.
 2. The confirm screen shows Destination Inbox, Format EPUB, and Send. If the app is not paired, the button is Pair device. If the device is offline, Send is disabled.
 3. Send calls `SafariWebExtensionHandler`. The stub sets `implemented: false`, so the popup says the send is not available yet. It shows Sent only when a result says `implemented: true`.
 4. Done closes the popup. It also closes about 1.2 seconds after success.
@@ -92,7 +92,7 @@ Extension JavaScript and the native handler share one shape. No token fields are
 
 | Step | Body |
 | --- | --- |
-| Popup to content script | `{ "type": "extractArticle" }` |
+| Popup to the active tab | inject `content.js`, then `{ "type": "extractArticle" }` |
 | Content script to popup | `{ "type": "articleDraft", "title", "url", "byline"? }` |
 | Popup to the app, before Send | `{ "type": "pairingStatus" }` |
 | App to the popup | `{ "paired": true/false }` |
@@ -102,6 +102,12 @@ Extension JavaScript and the native handler share one shape. No token fields are
 The pairing code is 8 letters or digits from `https://my.remarkable.com/device/browser/connect`. The app trims it, lowercases it, and strips spaces and hyphens before checking `^[a-z0-9]{8}$`. Pair stays disabled until that matches. The app does not call the site.
 
 The native call uses `browser.runtime.sendNativeMessage("application", message)`. Safari routes that to this extension’s handler. `"application"` is not a bundle id and not a secret.
+
+Permissions:
+
+- `activeTab`: read only the tab that was active when the popup opened.
+- `scripting`: inject `content.js` into that tab. There is no `content_scripts` entry and no host permission.
+- `nativeMessaging`: the service worker calls the containing app.
 
 ## License
 

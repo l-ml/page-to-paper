@@ -97,6 +97,15 @@ describe("popup spinner", () => {
     expect(spinnerVisible()).toBe(false);
   });
 
+  it("renders an error instead of a spinner when injection is not allowed", () => {
+    const phase = reducePopup({ name: "reading", busy: true }, { type: "pageUnread" });
+    renderPopup(document, phase);
+    expect(phase).toMatchObject({ name: "error", kind: "pageUnread", busy: false });
+    expect(document.querySelector("#status")?.textContent).toBe("Could not read this page");
+    expect(primary().getAttribute("aria-busy")).toBe("false");
+    expect(spinnerVisible()).toBe(false);
+  });
+
   it("shows the spinner only while sending", () => {
     const sending = reducePopup(
       { name: "ready", page, paired: true, offline: false, busy: false },

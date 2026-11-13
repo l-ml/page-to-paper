@@ -194,6 +194,7 @@
     const tab = await deps.queryActiveTab();
     if (tab?.id === void 0) return { ok: false };
     try {
+      await deps.inject(tab.id);
       return { ok: true, draft: parseArticleDraft(await deps.extract(tab.id)) };
     } catch {
       return { ok: false };
@@ -622,6 +623,9 @@
       queryActiveTab: async () => {
         const tabs = await browser.tabs.query({ active: true, currentWindow: true });
         return tabs[0];
+      },
+      inject: async (tabId) => {
+        await browser.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
       },
       extract: (tabId) => browser.tabs.sendMessage(tabId, { type: "extractArticle" })
     });

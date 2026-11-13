@@ -20,8 +20,16 @@ function extractDraft(): { type: "articleDraft"; title: string; url: string; byl
   return draft;
 }
 
-browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!isExtractRequest(message)) return;
-  sendResponse(extractDraft());
-  return true;
-});
+/** Registers the reader once per page, including when the popup injects this file again. */
+export function installReader(): void {
+  const scope = globalThis as { __pageToPaperReader?: boolean };
+  if (scope.__pageToPaperReader) return;
+  scope.__pageToPaperReader = true;
+  browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (!isExtractRequest(message)) return;
+    sendResponse(extractDraft());
+    return true;
+  });
+}
+
+installReader();
