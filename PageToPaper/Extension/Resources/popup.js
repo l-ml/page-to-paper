@@ -98,6 +98,10 @@
     }
     return trimmed;
   }
+  var bridgeReserved = /[[\]{}|^]/g;
+  function bridgeURLString(url) {
+    return url.toString().replace(bridgeReserved, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  }
   function parseArticleDraft(value) {
     rejectSecrets(value);
     if (!isRecord(value)) {
@@ -135,7 +139,7 @@
     if (!url.hostname) {
       throw new MessageShapeError("Article URL is invalid.", "urlInvalid");
     }
-    const draft = { title, url: url.toString() };
+    const draft = { title, url: bridgeURLString(url) };
     const html = optionalText(value.html, limits.html, "Article HTML");
     const byline = optionalText(value.byline, limits.byline, "Byline", "bylineTooLong");
     if (html) draft.html = html;

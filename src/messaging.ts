@@ -147,6 +147,13 @@ export function isExtractRequest(value: unknown): boolean {
   return value.type === messageTypes.extractArticle && Object.keys(value).length === 1;
 }
 
+/** WHATWG leaves these raw. URL(string:) on iOS 15 and 16 rejects them. */
+const bridgeReserved = /[[\]{}|^]/g;
+
+export function bridgeURLString(url: URL): string {
+  return url.toString().replace(bridgeReserved, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
 export function parseArticleDraft(value: unknown): ArticleDraft {
   rejectSecrets(value);
   if (!isRecord(value)) {
@@ -184,7 +191,7 @@ export function parseArticleDraft(value: unknown): ArticleDraft {
   if (!url.hostname) {
     throw new MessageShapeError("Article URL is invalid.", "urlInvalid");
   }
-  const draft: ArticleDraft = { title, url: url.toString() };
+  const draft: ArticleDraft = { title, url: bridgeURLString(url) };
   const html = optionalText(value.html, limits.html, "Article HTML");
   const byline = optionalText(value.byline, limits.byline, "Byline", "bylineTooLong");
   if (html) draft.html = html;

@@ -52,6 +52,9 @@ describe("parseArticleDraft", () => {
     expect(() =>
       parseArticleDraft({ title: "Note", url: `https://example.com/${"a".repeat(limits.url)}` }),
     ).toThrow(expect.objectContaining({ code: "urlTooLong" }));
+    expect(parseArticleDraft({ title: "Note", url: "https://shop.example/list?filter[tag]=x" }).url).toBe(
+      "https://shop.example/list?filter%5Btag%5D=x",
+    );
   });
 
   it("rejects over-long fields", () => {

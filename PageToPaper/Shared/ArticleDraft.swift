@@ -24,7 +24,7 @@ struct ArticleDraft: Equatable {
         }
         guard let rawURL = nonEmpty(body["url"]),
               rawURL.count <= ArticleDraftLimits.url,
-              let url = URL(string: rawURL),
+              let url = URL(string: percentEncodingBridgeCharacters(in: rawURL)),
               let scheme = url.scheme?.lowercased(),
               scheme == "http" || scheme == "https",
               url.user == nil,
@@ -56,6 +56,20 @@ struct ArticleDraft: Equatable {
         }
 
         return ArticleDraft(title: title, url: url.absoluteString, html: html, byline: byline)
+    }
+
+    /// `[]{}|^` stay raw in a WHATWG URL. `URL(string:)` on iOS 15 and 16 returns nil for them.
+    private static func percentEncodingBridgeCharacters(in raw: String) -> String {
+        var encoded = ""
+        for scalar in raw.unicodeScalars {
+            switch scalar.value {
+            case 91, 93, 123, 125, 124, 94:
+                encoded += String(format: "%%%02X", scalar.value)
+            default:
+                encoded.unicodeScalars.append(scalar)
+            }
+        }
+        return encoded
     }
 
     private static func nonEmpty(_ value: Any?) -> String? {
