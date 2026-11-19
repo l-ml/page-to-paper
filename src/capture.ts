@@ -1,5 +1,6 @@
 import {
   buildUploadRequest,
+  MessageShapeError,
   messageTypes,
   parseArticleDraft,
   parsePairingStatus,
@@ -19,14 +20,21 @@ export type PairingQuery = { status: "known"; paired: boolean } | { status: "unr
 
 export type NativeDispatch = (message: unknown) => Promise<unknown>;
 
-export async function readActivePage(deps: ReadDependencies): Promise<{ ok: true; draft: ArticleDraft } | { ok: false }> {
+export type PageRead =
+  | { ok: true; draft: ArticleDraft }
+  | { ok: false; reason: "unread" | "unsupported" };
+
+export async function readActivePage(deps: ReadDependencies): Promise<PageRead> {
   const tab = await deps.queryActiveTab();
-  if (tab?.id === undefined) return { ok: false };
+  if (tab?.id === undefined) return { ok: false, reason: "unread" };
   try {
     await deps.inject(tab.id);
     return { ok: true, draft: parseArticleDraft(await deps.extract(tab.id)) };
-  } catch {
-    return { ok: false };
+  } catch (error) {
+    if (error instanceof MessageShapeError && error.message.includes("URL is too long")) {
+      return { ok: false, reason: "unsupported" };
+    }
+    return { ok: false, reason: "unread" };
   }
 }
 

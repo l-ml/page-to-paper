@@ -1,4 +1,4 @@
-import { isExtractRequest } from "./messaging";
+import { isExtractRequest, limits } from "./messaging";
 
 function readByline(): string | undefined {
   const selectors = ['meta[name="author"]', 'meta[property="article:author"]'];
@@ -9,15 +9,25 @@ function readByline(): string | undefined {
   return undefined;
 }
 
-function extractDraft(): { type: "articleDraft"; title: string; url: string; byline?: string } {
-  const draft: { type: "articleDraft"; title: string; url: string; byline?: string } = {
-    type: "articleDraft",
-    title: document.title.trim() || "Untitled",
-    url: location.href,
+function clip(value: string, max: number): string {
+  const trimmed = value.trim();
+  return trimmed.length <= max ? trimmed : trimmed.slice(0, max);
+}
+
+/** Title and byline are clipped to the shared limits. The URL is left intact so an over-long one can be rejected as unsupported. */
+export function articleFields(title: string, url: string, byline?: string): { title: string; url: string; byline?: string } {
+  const fields: { title: string; url: string; byline?: string } = {
+    title: clip(title, limits.title) || "Untitled",
+    url,
   };
-  const byline = readByline();
-  if (byline) draft.byline = byline;
-  return draft;
+  const clippedByline = byline ? clip(byline, limits.byline) : "";
+  if (clippedByline) fields.byline = clippedByline;
+  return fields;
+}
+
+function extractDraft(): { type: "articleDraft"; title: string; url: string; byline?: string } {
+  const fields = articleFields(document.title, location.href, readByline());
+  return { type: "articleDraft", ...fields };
 }
 
 /** Registers the reader once per page, including when the popup injects this file again. */

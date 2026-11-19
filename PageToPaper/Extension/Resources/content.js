@@ -2,6 +2,14 @@
 "use strict";
 (() => {
   // src/messaging.ts
+  var limits = {
+    title: 300,
+    byline: 200,
+    html: 5e5,
+    url: 2e3,
+    resultMessage: 500,
+    documentId: 200
+  };
   var messageTypes = {
     extractArticle: "extractArticle",
     articleDraft: "articleDraft",
@@ -60,15 +68,22 @@
     }
     return void 0;
   }
-  function extractDraft() {
-    const draft = {
-      type: "articleDraft",
-      title: document.title.trim() || "Untitled",
-      url: location.href
+  function clip(value, max) {
+    const trimmed = value.trim();
+    return trimmed.length <= max ? trimmed : trimmed.slice(0, max);
+  }
+  function articleFields(title, url, byline) {
+    const fields = {
+      title: clip(title, limits.title) || "Untitled",
+      url
     };
-    const byline = readByline();
-    if (byline) draft.byline = byline;
-    return draft;
+    const clippedByline = byline ? clip(byline, limits.byline) : "";
+    if (clippedByline) fields.byline = clippedByline;
+    return fields;
+  }
+  function extractDraft() {
+    const fields = articleFields(document.title, location.href, readByline());
+    return { type: "articleDraft", ...fields };
   }
   function installReader() {
     const scope = globalThis;

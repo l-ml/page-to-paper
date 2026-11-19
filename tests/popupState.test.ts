@@ -116,6 +116,9 @@ describe("reducePopup", () => {
     expect(reducePopup(network, { type: "retry" }).name).toBe("sending");
     const unread = reducePopup({ name: "reading", busy: true }, { type: "pageUnread" });
     expect(reducePopup(unread, { type: "retry" }).name).toBe("reading");
+    const tooLong = reducePopup({ name: "reading", busy: true }, { type: "pageUnsupported" });
+    expect(tooLong).toMatchObject({ name: "error", kind: "unsupportedPage", busy: false });
+    expect(popupCopy(tooLong).primaryAction).toBe("dismiss");
     const limited = reducePopup(sending, { type: "uploadFailed", kind: "rateLimit" });
     expect(reducePopup(limited, { type: "acknowledge" }).name).toBe("ready");
     expect(reducePopup(limited, { type: "retry" })).toEqual(limited);

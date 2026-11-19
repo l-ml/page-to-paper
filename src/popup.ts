@@ -58,7 +58,7 @@ async function loadPage(): Promise<void> {
   // A watchdog may already have left "reading". A late result must not set busy again.
   if (session.phase().name !== "reading") return;
   if (!read.ok) {
-    session.commit({ type: "pageUnread" });
+    session.commit(read.reason === "unsupported" ? { type: "pageUnsupported" } : { type: "pageUnread" });
     return;
   }
   const page = previewFromDraft(read.draft);

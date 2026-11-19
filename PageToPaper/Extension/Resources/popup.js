@@ -192,12 +192,15 @@
   // src/capture.ts
   async function readActivePage(deps) {
     const tab = await deps.queryActiveTab();
-    if (tab?.id === void 0) return { ok: false };
+    if (tab?.id === void 0) return { ok: false, reason: "unread" };
     try {
       await deps.inject(tab.id);
       return { ok: true, draft: parseArticleDraft(await deps.extract(tab.id)) };
-    } catch {
-      return { ok: false };
+    } catch (error) {
+      if (error instanceof MessageShapeError && error.message.includes("URL is too long")) {
+        return { ok: false, reason: "unsupported" };
+      }
+      return { ok: false, reason: "unread" };
     }
   }
   async function queryPaired(dispatch2) {
@@ -243,6 +246,9 @@
       case "pageUnread":
         if (state.name !== "reading") return state;
         return { name: "error", kind: "pageUnread", busy: false };
+      case "pageUnsupported":
+        if (state.name !== "reading") return state;
+        return { name: "error", kind: "unsupportedPage", busy: false };
       case "send":
         if (state.name !== "ready" || !state.paired || state.offline) return state;
         return { name: "sending", page: state.page, busy: true };
@@ -631,7 +637,7 @@
     });
     if (session.phase().name !== "reading") return;
     if (!read.ok) {
-      session.commit({ type: "pageUnread" });
+      session.commit(read.reason === "unsupported" ? { type: "pageUnsupported" } : { type: "pageUnread" });
       return;
     }
     const page = previewFromDraft(read.draft);

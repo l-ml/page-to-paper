@@ -28,6 +28,7 @@ export type PopupEvent =
   | { type: "open" }
   | { type: "pageLoaded"; page: PagePreview; paired: boolean; offline: boolean }
   | { type: "pageUnread" }
+  | { type: "pageUnsupported" }
   | { type: "send" }
   | { type: "uploadSucceeded" }
   | { type: "uploadUnavailable" }
@@ -82,6 +83,9 @@ export function reducePopup(state: PopupPhase, event: PopupEvent): PopupPhase {
     case "pageUnread":
       if (state.name !== "reading") return state;
       return { name: "error", kind: "pageUnread", busy: false };
+    case "pageUnsupported":
+      if (state.name !== "reading") return state;
+      return { name: "error", kind: "unsupportedPage", busy: false };
     case "send":
       if (state.name !== "ready" || !state.paired || state.offline) return state;
       return { name: "sending", page: state.page, busy: true };

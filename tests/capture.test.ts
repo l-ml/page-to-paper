@@ -38,8 +38,15 @@ describe("readActivePage", () => {
       extract: async () => ({ type: "articleDraft", title: "Nope", url: "file:///tmp/a" }),
     });
     expect(extract).not.toHaveBeenCalled();
-    expect(unread).toEqual({ ok: false });
-    expect(invalid).toEqual({ ok: false });
+    expect(unread).toEqual({ ok: false, reason: "unread" });
+    expect(invalid).toEqual({ ok: false, reason: "unread" });
+    const longUrl = `https://news.example/${"a".repeat(2100)}`;
+    const tooLong = await readActivePage({
+      queryActiveTab: async () => ({ id: 3 }),
+      inject: async () => {},
+      extract: async () => ({ type: "articleDraft", title: "Dispatch", url: longUrl }),
+    });
+    expect(tooLong).toEqual({ ok: false, reason: "unsupported" });
   });
 });
 
