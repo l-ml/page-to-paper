@@ -22,9 +22,11 @@ struct ArticleDraft: Equatable {
         guard let title = nonEmpty(body["title"]), title.count <= ArticleDraftLimits.title else {
             return nil
         }
-        guard let rawURL = nonEmpty(body["url"]),
-              let bridgedURL = percentEncodingBridgeCharacters(in: rawURL),
-              bridgedURL.count <= ArticleDraftLimits.url,
+        guard let rawURL = nonEmpty(body["url"]) else {
+            return nil
+        }
+        let bridgedURL = percentEncodingBridgeCharacters(in: rawURL)
+        guard bridgedURL.count <= ArticleDraftLimits.url,
               let url = URL(string: bridgedURL),
               let scheme = url.scheme?.lowercased(),
               scheme == "http" || scheme == "https",
