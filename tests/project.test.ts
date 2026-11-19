@@ -93,4 +93,10 @@ describe("checked-in project files", () => {
     expect(popupJs).toContain("pagetopaper://pair");
     expect(popupJs).not.toContain("NSExtensionContext");
   });
+
+  it("keeps the committed extension scripts in step with src", () => {
+    execFileSync("npm", ["run", "build"], { encoding: "utf8" });
+    const diff = execFileSync("git", ["diff", "--", "PageToPaper/Extension/Resources"], { encoding: "utf8" });
+    expect(diff).toBe("");
+  });
 });
