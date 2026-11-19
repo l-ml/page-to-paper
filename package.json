@@ -1,0 +1,23 @@
+{
+  "name": "page-to-paper",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Scaffold for the Page to Paper iOS Safari web extension.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "esbuild": "^0.28.2",
+    "happy-dom": "^21.0.4",
+    "typescript": "~5.9.3",
+    "vitest": "^5.1.0"
+  }
+}
