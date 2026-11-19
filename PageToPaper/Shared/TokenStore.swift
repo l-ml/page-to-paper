@@ -22,11 +22,22 @@ struct TokenStore {
     }
 
     func save(_ data: Data) throws {
-        try delete()
-        var query = try baseQuery(writing: true)
-        query[kSecValueData as String] = data
-        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        let status = SecItemAdd(query as CFDictionary, nil)
+        let query = try baseQuery(writing: true)
+        let attributes: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        let updated = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        if updated == errSecSuccess {
+            return
+        }
+        guard updated == errSecItemNotFound else {
+            throw TokenStoreError.unexpectedStatus(updated)
+        }
+        var add = query
+        add[kSecValueData as String] = data
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        let status = SecItemAdd(add as CFDictionary, nil)
         guard status == errSecSuccess else {
             throw TokenStoreError.unexpectedStatus(status)
         }
