@@ -114,6 +114,9 @@ describe("reducePopup", () => {
     const sending = reducePopup(ready(), { type: "send" });
     const network = reducePopup(sending, { type: "uploadFailed", kind: "network" });
     expect(reducePopup(network, { type: "retry" }).name).toBe("sending");
+    const noPage = reducePopup({ name: "error", kind: "network", busy: false }, { type: "retry" });
+    expect(noPage).toEqual({ name: "reading", busy: true });
+    expect(popupCopy(noPage).busy).toBe(true);
     const unread = reducePopup({ name: "reading", busy: true }, { type: "pageUnread" });
     expect(reducePopup(unread, { type: "retry" }).name).toBe("reading");
     const tooLong = reducePopup({ name: "reading", busy: true }, { type: "pageUnsupported" });

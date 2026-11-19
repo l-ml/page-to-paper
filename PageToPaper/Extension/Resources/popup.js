@@ -698,6 +698,10 @@
     }
     if (action === "retry-send") {
       session.commit({ type: "retry" });
+      if (session.phase().name === "reading") {
+        void loadPage();
+        return;
+      }
       if (session.phase().name !== "sending") return;
       void performUpload();
       return;
