@@ -9,10 +9,16 @@ function readByline(): string | undefined {
   return undefined;
 }
 
+/** Stops on a whole character, and never exceeds `max` UTF-16 units (what `parseArticleDraft` checks). */
 function clip(value: string, max: number): string {
   const trimmed = value.trim();
-  const characters = Array.from(trimmed);
-  return characters.length <= max ? trimmed : characters.slice(0, max).join("");
+  if (trimmed.length <= max) return trimmed;
+  let out = "";
+  for (const character of trimmed) {
+    if (out.length + character.length > max) break;
+    out += character;
+  }
+  return out;
 }
 
 /** Title and byline are clipped to the shared limits. The URL is left intact so an over-long one can be rejected as unsupported. */

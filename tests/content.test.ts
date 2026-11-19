@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { limits } from "../src/messaging";
+import { limits, parseArticleDraft } from "../src/messaging";
 
 const listeners: Array<unknown> = [];
 
@@ -27,7 +27,14 @@ describe("articleFields", () => {
     expect(fields.url.length).toBeGreaterThan(limits.url);
     const emoji = "😀";
     const aroundEmoji = `${"a".repeat(limits.title - 1)}${emoji}`;
-    expect(articleFields(aroundEmoji, "https://news.example/ok").title).toBe(aroundEmoji);
+    const clipped = articleFields(aroundEmoji, "https://news.example/ok", emoji.repeat(limits.byline));
+    expect(clipped.title.length).toBeLessThanOrEqual(limits.title);
+    expect(clipped.byline!.length).toBeLessThanOrEqual(limits.byline);
+    expect(parseArticleDraft({ type: "articleDraft", ...clipped }).title).toBe(clipped.title);
+    const many = articleFields(emoji.repeat(200), "https://news.example/ok", emoji.repeat(200));
+    expect(many.title.length).toBeLessThanOrEqual(limits.title);
+    expect(many.byline!.length).toBeLessThanOrEqual(limits.byline);
+    expect(() => parseArticleDraft({ type: "articleDraft", title: many.title, url: many.url, byline: many.byline })).not.toThrow();
   });
 });
 
