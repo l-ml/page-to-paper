@@ -615,12 +615,12 @@
   function openApp(reason) {
     assignPairingLink(window.location, reason);
   }
-  async function clearPairingThenOpen() {
+  async function clearPairingThenOpen(reason) {
     try {
       await clearStoredPairing(dispatch);
     } catch {
     }
-    window.location.href = pairingDeepLink("expired");
+    window.location.href = pairingDeepLink(reason);
   }
   async function loadPage() {
     clearTimeout(dismissTimer);
@@ -713,8 +713,8 @@
   element2("#primary", HTMLButtonElement).addEventListener("click", () => {
     const view2 = popupCopy(session.phase());
     if (view2.primaryDisabled) return;
-    if (view2.clearPairing) {
-      void clearPairingThenOpen();
+    if (view2.clearPairing && view2.openReason) {
+      void clearPairingThenOpen(view2.openReason);
       return;
     }
     runAction(view2.primaryAction, view2.openReason);

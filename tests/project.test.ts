@@ -15,6 +15,8 @@ describe("extension sources", () => {
 
     expect(read("src/nativeCall.ts")).toContain("nativeCallTimeoutMs");
     expect(popup).toContain("assignPairingLink");
+    expect(popup).toContain("clearPairingThenOpen(view.openReason)");
+    expect(popup).not.toContain('pairingDeepLink("expired")');
     expect(popup).toContain("uploadDraft");
     expect(popup).toContain("requestNative");
     expect(popup).not.toContain("sendNativeMessage");

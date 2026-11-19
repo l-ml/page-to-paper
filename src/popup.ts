@@ -33,13 +33,13 @@ function openApp(reason: PairingDeepLinkReason): void {
   assignPairingLink(window.location, reason);
 }
 
-async function clearPairingThenOpen(): Promise<void> {
+async function clearPairingThenOpen(reason: PairingDeepLinkReason): Promise<void> {
   try {
     await clearStoredPairing(dispatch);
   } catch {
     // Still open the app. The token was already unusable.
   }
-  window.location.href = pairingDeepLink("expired");
+  window.location.href = pairingDeepLink(reason);
 }
 
 async function loadPage(): Promise<void> {
@@ -138,8 +138,8 @@ function runAction(action: PopupAction | undefined, reason: PairingDeepLinkReaso
 element("#primary", HTMLButtonElement).addEventListener("click", () => {
   const view = popupCopy(session.phase());
   if (view.primaryDisabled) return;
-  if (view.clearPairing) {
-    void clearPairingThenOpen();
+  if (view.clearPairing && view.openReason) {
+    void clearPairingThenOpen(view.openReason);
     return;
   }
   runAction(view.primaryAction, view.openReason);
