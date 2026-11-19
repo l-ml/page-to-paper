@@ -1,5 +1,7 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 function read(path: string): string {
@@ -94,9 +96,14 @@ describe("checked-in project files", () => {
     expect(popupJs).not.toContain("NSExtensionContext");
   });
 
-  it("keeps the committed extension scripts in step with src", () => {
-    execFileSync("npm", ["run", "build"], { encoding: "utf8" });
-    const diff = execFileSync("git", ["diff", "--", "PageToPaper/Extension/Resources"], { encoding: "utf8" });
-    expect(diff).toBe("");
+  it("builds the same extension scripts that are committed", () => {
+    const outdir = fs.mkdtempSync(path.join(os.tmpdir(), "page-to-paper-"));
+    execFileSync("node", ["esbuild.config.mjs"], {
+      encoding: "utf8",
+      env: { ...process.env, EXTENSION_OUTDIR: outdir },
+    });
+    for (const name of ["background.js", "content.js", "popup.js"]) {
+      expect(fs.readFileSync(path.join(outdir, name), "utf8")).toBe(read(`PageToPaper/Extension/Resources/${name}`));
+    }
   });
 });
