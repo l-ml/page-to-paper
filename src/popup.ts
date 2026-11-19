@@ -5,6 +5,7 @@ import { element, renderPopup } from "./popupRender";
 import { createPopupSession } from "./popupSession";
 import {
   eventForUploadResult,
+  dismissClosesPopup,
   popupCopy,
   previewFromDraft,
   successDismissMs,
@@ -127,6 +128,10 @@ function runAction(action: PopupAction | undefined, reason: PairingDeepLinkReaso
     return;
   }
   if (action === "dismiss") {
+    if (dismissClosesPopup(session.phase())) {
+      window.close();
+      return;
+    }
     session.commit({ type: "acknowledge", offline: navigator.onLine === false });
   }
 }

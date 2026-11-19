@@ -9,6 +9,7 @@ import {
   nativeCallTimeoutMs,
   popupCopy,
   previewFromDraft,
+  dismissClosesPopup,
   reducePopup,
   successDismissMs,
   type ErrorKind,
@@ -122,6 +123,8 @@ describe("reducePopup", () => {
     const tooLong = reducePopup({ name: "reading", busy: true }, { type: "pageUnsupported" });
     expect(tooLong).toMatchObject({ name: "error", kind: "unsupportedPage", busy: false });
     expect(popupCopy(tooLong).primaryAction).toBe("dismiss");
+    expect(dismissClosesPopup(tooLong)).toBe(true);
+    expect(reducePopup(tooLong, { type: "acknowledge" }).name).toBe("idle");
     const limited = reducePopup(sending, { type: "uploadFailed", kind: "rateLimit" });
     expect(reducePopup(limited, { type: "acknowledge" }).name).toBe("ready");
     expect(reducePopup(limited, { type: "retry" })).toEqual(limited);

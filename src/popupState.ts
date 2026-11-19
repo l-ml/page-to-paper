@@ -66,6 +66,11 @@ export function initialPopup(): PopupPhase {
   return { name: "idle", busy: false };
 }
 
+/** A page-less unsupported error has nothing to return to. OK should close the popup. */
+export function dismissClosesPopup(state: PopupPhase): boolean {
+  return state.name === "error" && state.kind === "unsupportedPage" && state.page === undefined;
+}
+
 export function previewFromDraft(draft: ArticleDraft): PagePreview {
   const hostname = new URL(draft.url).hostname;
   const trimmed = draft.title.trim();

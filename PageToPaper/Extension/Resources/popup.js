@@ -230,6 +230,9 @@
   function initialPopup() {
     return { name: "idle", busy: false };
   }
+  function dismissClosesPopup(state) {
+    return state.name === "error" && state.kind === "unsupportedPage" && state.page === void 0;
+  }
   function previewFromDraft(draft) {
     const hostname = new URL(draft.url).hostname;
     const trimmed = draft.title.trim();
@@ -701,6 +704,10 @@
       return;
     }
     if (action === "dismiss") {
+      if (dismissClosesPopup(session.phase())) {
+        window.close();
+        return;
+      }
       session.commit({ type: "acknowledge", offline: navigator.onLine === false });
     }
   }
