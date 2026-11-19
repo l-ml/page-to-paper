@@ -147,11 +147,15 @@ export function isExtractRequest(value: unknown): boolean {
   return value.type === messageTypes.extractArticle && Object.keys(value).length === 1;
 }
 
-/** WHATWG leaves these raw. URL(string:) on iOS 15 and 16 rejects them. */
+/** WHATWG leaves these raw in the path and query. URL(string:) on iOS 15 and 16 rejects them. Host brackets stay, so IPv6 literals keep working. */
 const bridgeReserved = /[[\]{}|^]/g;
 
+function encodeBridgeReserved(value: string): string {
+  return value.replace(bridgeReserved, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
 export function bridgeURLString(url: URL): string {
-  return url.toString().replace(bridgeReserved, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `${url.origin}${encodeBridgeReserved(`${url.pathname}${url.search}${url.hash}`)}`;
 }
 
 export function parseArticleDraft(value: unknown): ArticleDraft {
@@ -173,9 +177,6 @@ export function parseArticleDraft(value: unknown): ArticleDraft {
     throw new MessageShapeError("Article URL is missing.");
   }
   const rawURL = value.url.trim();
-  if (rawURL.length > limits.url) {
-    throw new MessageShapeError("Article URL is too long.", "urlTooLong");
-  }
   let url: URL;
   try {
     url = new URL(rawURL);
@@ -191,7 +192,11 @@ export function parseArticleDraft(value: unknown): ArticleDraft {
   if (!url.hostname) {
     throw new MessageShapeError("Article URL is invalid.", "urlInvalid");
   }
-  const draft: ArticleDraft = { title, url: bridgeURLString(url) };
+  const bridgedURL = bridgeURLString(url);
+  if (bridgedURL.length > limits.url) {
+    throw new MessageShapeError("Article URL is too long.", "urlTooLong");
+  }
+  const draft: ArticleDraft = { title, url: bridgedURL };
   const html = optionalText(value.html, limits.html, "Article HTML");
   const byline = optionalText(value.byline, limits.byline, "Byline", "bylineTooLong");
   if (html) draft.html = html;

@@ -99,8 +99,11 @@
     return trimmed;
   }
   var bridgeReserved = /[[\]{}|^]/g;
+  function encodeBridgeReserved(value) {
+    return value.replace(bridgeReserved, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  }
   function bridgeURLString(url) {
-    return url.toString().replace(bridgeReserved, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+    return `${url.origin}${encodeBridgeReserved(`${url.pathname}${url.search}${url.hash}`)}`;
   }
   function parseArticleDraft(value) {
     rejectSecrets(value);
@@ -121,9 +124,6 @@
       throw new MessageShapeError("Article URL is missing.");
     }
     const rawURL = value.url.trim();
-    if (rawURL.length > limits.url) {
-      throw new MessageShapeError("Article URL is too long.", "urlTooLong");
-    }
     let url;
     try {
       url = new URL(rawURL);
@@ -139,7 +139,11 @@
     if (!url.hostname) {
       throw new MessageShapeError("Article URL is invalid.", "urlInvalid");
     }
-    const draft = { title, url: bridgeURLString(url) };
+    const bridgedURL = bridgeURLString(url);
+    if (bridgedURL.length > limits.url) {
+      throw new MessageShapeError("Article URL is too long.", "urlTooLong");
+    }
+    const draft = { title, url: bridgedURL };
     const html = optionalText(value.html, limits.html, "Article HTML");
     const byline = optionalText(value.byline, limits.byline, "Byline", "bylineTooLong");
     if (html) draft.html = html;

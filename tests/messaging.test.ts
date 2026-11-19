@@ -55,6 +55,10 @@ describe("parseArticleDraft", () => {
     expect(parseArticleDraft({ title: "Note", url: "https://shop.example/list?filter[tag]=x" }).url).toBe(
       "https://shop.example/list?filter%5Btag%5D=x",
     );
+    expect(parseArticleDraft({ title: "Note", url: "https://[2001:db8::1]/post" }).url).toBe("https://[2001:db8::1]/post");
+    const almost = `https://shop.example/q?${"a".repeat(1960)}${"[".repeat(6)}`;
+    expect(almost.length).toBeLessThanOrEqual(limits.url);
+    expect(() => parseArticleDraft({ title: "Note", url: almost })).toThrow(expect.objectContaining({ code: "urlTooLong" }));
   });
 
   it("rejects over-long fields", () => {

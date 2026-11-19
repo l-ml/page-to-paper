@@ -23,8 +23,9 @@ struct ArticleDraft: Equatable {
             return nil
         }
         guard let rawURL = nonEmpty(body["url"]),
-              rawURL.count <= ArticleDraftLimits.url,
-              let url = URL(string: percentEncodingBridgeCharacters(in: rawURL)),
+              let bridgedURL = percentEncodingBridgeCharacters(in: rawURL),
+              bridgedURL.count <= ArticleDraftLimits.url,
+              let url = URL(string: bridgedURL),
               let scheme = url.scheme?.lowercased(),
               scheme == "http" || scheme == "https",
               url.user == nil,
@@ -58,10 +59,24 @@ struct ArticleDraft: Equatable {
         return ArticleDraft(title: title, url: url.absoluteString, html: html, byline: byline)
     }
 
-    /// `[]{}|^` stay raw in a WHATWG URL. `URL(string:)` on iOS 15 and 16 returns nil for them.
+    /// `[]{}|^` stay raw in a WHATWG path or query. `URL(string:)` on iOS 15 and 16 returns nil for them.
+    /// Brackets in the host are left alone so an IPv6 literal still parses.
     private static func percentEncodingBridgeCharacters(in raw: String) -> String {
+        let tailStart = pathStart(in: raw)
+        return String(raw[..<tailStart]) + encodeReserved(String(raw[tailStart...]))
+    }
+
+    private static func pathStart(in raw: String) -> String.Index {
+        guard let scheme = raw.range(of: "://") else {
+            return raw.startIndex
+        }
+        let afterScheme = raw[scheme.upperBound...]
+        return afterScheme.firstIndex(where: { $0 == "/" || $0 == "?" || $0 == "#" }) ?? raw.endIndex
+    }
+
+    private static func encodeReserved(_ tail: String) -> String {
         var encoded = ""
-        for scalar in raw.unicodeScalars {
+        for scalar in tail.unicodeScalars {
             switch scalar.value {
             case 91, 93, 123, 125, 124, 94:
                 encoded += String(format: "%%%02X", scalar.value)
