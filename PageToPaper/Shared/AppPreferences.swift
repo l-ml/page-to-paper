@@ -19,7 +19,6 @@ enum KeychainSharing {
 
 enum AppPreferences {
     static let appGroupID = "group.com.example.pagetopaper"
-    static let keychainAccessGroupSuffix = "com.example.pagetopaper.shared"
     private static let onboardingKey = "hasCompletedOnboarding"
     private static let log = Logger(subsystem: "com.example.pagetopaper", category: "preferences")
     private static var didReportMissingSuite = false

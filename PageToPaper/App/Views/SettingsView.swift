@@ -34,7 +34,7 @@ struct SettingsView: View {
             Section(header: Text("Developer")) {
                 SettingsRow(title: "Bundle ID", value: Bundle.main.bundleIdentifier ?? "com.example.pagetopaper")
                 SettingsRow(title: "App Group", value: AppPreferences.appGroupID)
-                SettingsRow(title: "Keychain group", value: AppPreferences.keychainAccessGroupSuffix)
+                SettingsRow(title: "Keychain group", value: AppPreferences.keychainAccessGroup ?? "unavailable")
             }
             Section(header: Text("Before TestFlight")) {
                 Text("Replace com.example.pagetopaper, the App Group, and the Keychain access group, then set your development team. Those identifiers are placeholders.")
