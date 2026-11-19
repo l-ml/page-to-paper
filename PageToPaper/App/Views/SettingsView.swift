@@ -20,8 +20,10 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                Button("Sign out") { confirmSignOut = true }
-                    .foregroundColor(.red)
+                if paired {
+                    Button("Sign out") { confirmSignOut = true }
+                        .foregroundColor(.red)
+                }
             }
             Section(
                 header: Text("About"),
