@@ -6,9 +6,11 @@ import { createPopupSession } from "../src/popupSession";
 import {
   errorKinds,
   initialPopup,
+  mockSuccessDetail,
   nativeCallTimeoutMs,
   previewFromDraft,
   reducePopup,
+  uploadRoundTripMs,
   type ErrorKind,
   type PagePreview,
   type PopupPhase,
@@ -70,6 +72,7 @@ describe("popup spinner", () => {
     ["paired confirm", { name: "ready", page, paired: true, offline: false, busy: false }],
     ["pairing-required", { name: "ready", page, paired: false, offline: false, busy: false }],
     ["success", { name: "success", page, busy: false }],
+    ["mock success", { name: "mockSuccess", page, busy: false }],
     ["stub", { name: "unavailable", page, busy: false }],
     ...errorKinds.map((kind): [string, PopupPhase] => [kind, errorPhase(kind)]),
   ];
@@ -117,6 +120,19 @@ describe("popup spinner", () => {
     renderPopup(document, { name: "unavailable", page, busy: false });
     expect(spinnerVisible()).toBe(false);
   });
+
+  it("paints mock success in a different state from a real send", () => {
+    renderPopup(document, { name: "mockSuccess", page, busy: false });
+    const status = document.querySelector("#status");
+    expect(status?.textContent).toBe("Test mode");
+    expect(document.querySelector("#detail")?.textContent).toBe(mockSuccessDetail);
+    expect(status?.getAttribute("data-state")).toBe("");
+    expect(document.querySelector("#primary-label")?.textContent).toBe("Done");
+    renderPopup(document, { name: "success", page, busy: false });
+    expect(document.querySelector("#status")?.textContent).toBe("Sent");
+    expect(document.querySelector("#status")?.getAttribute("data-state")).toBe("ok");
+    expect(document.querySelector("#detail")?.textContent).toBe("Saved to Inbox as EPUB.");
+  });
 });
 
 describe("busy watchdog", () => {
@@ -140,6 +156,21 @@ describe("busy watchdog", () => {
     expect(spinnerVisible()).toBe(false);
     expect(lines.some((line) => line.startsWith("[page-to-paper] popup watchdog timeout"))).toBe(true);
     expect(lines.at(-1)).toBe("[page-to-paper] popup reading -> error busy=false");
+  });
+
+  it("does not abandon a send at the shorter read timeout", () => {
+    vi.useFakeTimers();
+    const session = createPopupSession({
+      render: (phase) => renderPopup(document, phase),
+      log: () => {},
+    });
+    session.commit({ type: "open" });
+    session.commit({ type: "pageLoaded", page, paired: true, offline: false });
+    session.commit({ type: "send" });
+    vi.advanceTimersByTime(nativeCallTimeoutMs);
+    expect(session.phase().name).toBe("sending");
+    vi.advanceTimersByTime(uploadRoundTripMs - nativeCallTimeoutMs);
+    expect(session.phase()).toMatchObject({ name: "error", kind: "appUnreachable", afterSend: true });
   });
 
   it("does not leave busy true when pairing-required resolves, and a late reply cannot set it again", () => {

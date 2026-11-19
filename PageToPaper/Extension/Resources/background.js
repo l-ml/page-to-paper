@@ -2,6 +2,13 @@
 "use strict";
 (() => {
   // src/messaging.ts
+  var messageTypes = {
+    extractArticle: "extractArticle",
+    articleDraft: "articleDraft",
+    uploadArticle: "uploadArticle",
+    pairingStatus: "pairingStatus",
+    clearPairing: "clearPairing"
+  };
   var forbiddenSecretKeys = [
     "token",
     "password",
@@ -50,10 +57,15 @@
 
   // src/popupState.ts
   var nativeCallTimeoutMs = 1e4;
+  var uploadRoundTripMs = 25e3;
+  function nativeTimeoutMs(message) {
+    if (isRecord(message) && message.type === messageTypes.uploadArticle) return uploadRoundTripMs;
+    return nativeCallTimeoutMs;
+  }
 
   // src/nativeCall.ts
   var timeoutMessage = "The Page to Paper app did not answer.";
-  function callNative(message, messenger) {
+  function callNative(message, messenger, timeoutMs = nativeCallTimeoutMs) {
     if (findForbiddenSecretKey(message)) {
       return Promise.reject(new MessageShapeError("Messages must not carry secrets."));
     }
@@ -71,7 +83,7 @@
       const timer = setTimeout(() => {
         console.warn(`[page-to-paper] background native timeout ${type}`);
         finish(false, new Error(timeoutMessage));
-      }, nativeCallTimeoutMs);
+      }, timeoutMs);
       try {
         const maybe = messenger(containingAppNativeId, message, (response) => {
           const failure = nativeLastError();
@@ -123,7 +135,8 @@
     console.info("[page-to-paper] background received nativeRequest");
     void callNative(
       message.payload,
-      (application, body, callback) => browser.runtime.sendNativeMessage(application, body, callback)
+      (application, body, callback) => browser.runtime.sendNativeMessage(application, body, callback),
+      nativeTimeoutMs(message.payload)
     ).then(
       (value) => {
         console.info("[page-to-paper] background \u2192 popup ok");

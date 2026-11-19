@@ -90,23 +90,35 @@ describe("native calls", () => {
   });
 
   it("uploads only when uploadDraft is called", async () => {
-    const dispatch = vi.fn(async () => ({ ok: true, message: "Stub accepted. Nothing was uploaded.", implemented: false }));
+    const dispatch = vi.fn(async () => ({
+      ok: true,
+      message: "Test mode: nothing was uploaded to your reMarkable.",
+      implemented: false,
+      mock: true,
+    }));
+    const key = "11111111-1111-4111-8111-111111111111";
     const result = await uploadDraft(
       { title: "Dispatch", url: "https://news.example/dispatch", byline: "Sam" },
+      key,
       dispatch,
     );
     expect(dispatch).toHaveBeenCalledOnce();
     expect(dispatch).toHaveBeenCalledWith({
       type: "uploadArticle",
+      idempotencyKey: key,
       draft: { title: "Dispatch", url: "https://news.example/dispatch", byline: "Sam" },
     });
-    expect(result.implemented).toBe(false);
+    expect(result).toMatchObject({ implemented: false, mock: true });
   });
 
   it("reports when the app does not answer", async () => {
-    const result = await uploadDraft({ title: "Dispatch", url: "https://news.example/dispatch" }, async () => {
-      throw new Error("disconnected");
-    });
+    const result = await uploadDraft(
+      { title: "Dispatch", url: "https://news.example/dispatch" },
+      "11111111-1111-4111-8111-111111111111",
+      async () => {
+        throw new Error("disconnected");
+      },
+    );
     expect(result).toEqual({ ok: false, message: "The Page to Paper app did not answer." });
   });
 });

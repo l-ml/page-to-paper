@@ -10,7 +10,11 @@ export type NativeMessenger = (
 
 const timeoutMessage = "The Page to Paper app did not answer.";
 
-export function callNative(message: unknown, messenger: NativeMessenger): Promise<unknown> {
+export function callNative(
+  message: unknown,
+  messenger: NativeMessenger,
+  timeoutMs = nativeCallTimeoutMs,
+): Promise<unknown> {
   if (findForbiddenSecretKey(message)) {
     return Promise.reject(new MessageShapeError("Messages must not carry secrets."));
   }
@@ -28,7 +32,7 @@ export function callNative(message: unknown, messenger: NativeMessenger): Promis
     const timer = setTimeout(() => {
       console.warn(`[page-to-paper] background native timeout ${type}`);
       finish(false, new Error(timeoutMessage));
-    }, nativeCallTimeoutMs);
+    }, timeoutMs);
     try {
       const maybe = messenger(containingAppNativeId, message, (response) => {
         const failure = nativeLastError();
@@ -62,6 +66,7 @@ export function callNative(message: unknown, messenger: NativeMessenger): Promis
 export function requestNative(
   message: unknown,
   sendMessage: (body: unknown) => Promise<unknown>,
+  timeoutMs = nativeCallTimeoutMs,
 ): Promise<unknown> {
   const type = messageType(message);
   console.info(`[page-to-paper] popup → background ${type}`);
@@ -69,7 +74,7 @@ export function requestNative(
     const timer = setTimeout(() => {
       console.warn(`[page-to-paper] popup timeout ${type}`);
       reject(new Error(timeoutMessage));
-    }, nativeCallTimeoutMs);
+    }, timeoutMs);
     sendMessage({ type: "nativeRequest", payload: message }).then(
       (response) => {
         clearTimeout(timer);

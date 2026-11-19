@@ -1,9 +1,27 @@
 import type { PairingDeepLinkReason } from "./appLink";
-import { uploadErrorKinds, type ArticleDraft, type UploadErrorKind } from "./messaging";
+import {
+  isRecord,
+  messageTypes,
+  newIdempotencyKey,
+  uploadErrorKinds,
+  type ArticleDraft,
+  type UploadErrorKind,
+} from "./messaging";
 
 export const successDismissMs = 1200;
 export const nativeCallTimeoutMs = 10_000;
+/**
+ * A send waits longer than the native transport timeout (UploadTiming.transportTimeout, 20 seconds)
+ * so the app can return errorKind "timeout" before this round trip gives up.
+ */
+export const uploadRoundTripMs = 25_000;
 export const unavailableDetail = "Sending to your reMarkable isn't implemented in this build.";
+export const mockSuccessDetail = "Test mode: nothing was uploaded to your reMarkable.";
+
+export function nativeTimeoutMs(message: unknown): number {
+  if (isRecord(message) && message.type === messageTypes.uploadArticle) return uploadRoundTripMs;
+  return nativeCallTimeoutMs;
+}
 
 export const errorKinds = uploadErrorKinds;
 
@@ -19,10 +37,11 @@ export type PopupPhase =
   | { name: "idle"; busy: false }
   | { name: "reading"; busy: true }
   | { name: "ready"; page: PagePreview; paired: boolean; offline: boolean; busy: false }
-  | { name: "sending"; page: PagePreview; busy: true }
+  | { name: "sending"; page: PagePreview; idempotencyKey: string; busy: true }
   | { name: "success"; page: PagePreview; busy: false }
+  | { name: "mockSuccess"; page: PagePreview; busy: false }
   | { name: "unavailable"; page: PagePreview; busy: false }
-  | { name: "error"; kind: ErrorKind; page?: PagePreview; afterSend?: boolean; busy: false };
+  | { name: "error"; kind: ErrorKind; page?: PagePreview; afterSend?: boolean; idempotencyKey?: string; busy: false };
 
 export type PopupEvent =
   | { type: "open" }
@@ -31,6 +50,7 @@ export type PopupEvent =
   | { type: "pageUnsupported" }
   | { type: "send" }
   | { type: "uploadSucceeded" }
+  | { type: "uploadMocked" }
   | { type: "uploadUnavailable" }
   | { type: "uploadFailed"; kind: ErrorKind }
   | { type: "nativeUnreachable"; page?: PagePreview }
@@ -93,16 +113,26 @@ export function reducePopup(state: PopupPhase, event: PopupEvent): PopupPhase {
       return { name: "error", kind: "unsupportedPage", busy: false };
     case "send":
       if (state.name !== "ready" || !state.paired || state.offline) return state;
-      return { name: "sending", page: state.page, busy: true };
+      return { name: "sending", page: state.page, idempotencyKey: newIdempotencyKey(), busy: true };
     case "uploadSucceeded":
       if (state.name !== "sending") return state;
       return { name: "success", page: state.page, busy: false };
+    case "uploadMocked":
+      if (state.name !== "sending") return state;
+      return { name: "mockSuccess", page: state.page, busy: false };
     case "uploadUnavailable":
       if (state.name !== "sending") return state;
       return { name: "unavailable", page: state.page, busy: false };
     case "uploadFailed":
       if (state.name !== "sending") return state;
-      return { name: "error", kind: event.kind, page: state.page, afterSend: true, busy: false };
+      return {
+        name: "error",
+        kind: event.kind,
+        page: state.page,
+        afterSend: true,
+        idempotencyKey: state.idempotencyKey,
+        busy: false,
+      };
     case "nativeUnreachable":
       if (state.name !== "reading") return state;
       return { name: "error", kind: "appUnreachable", page: event.page, afterSend: false, busy: false };
@@ -113,6 +143,7 @@ export function reducePopup(state: PopupPhase, event: PopupEvent): PopupPhase {
         kind: "appUnreachable",
         page: pageOf(state),
         afterSend: state.name === "sending",
+        idempotencyKey: state.name === "sending" ? state.idempotencyKey : undefined,
         busy: false,
       };
     case "retry":
@@ -124,7 +155,12 @@ export function reducePopup(state: PopupPhase, event: PopupEvent): PopupPhase {
         return { name: "reading", busy: true };
       }
       if (state.kind === "rateLimit" || state.kind === "unsupportedPage") return state;
-      return { name: "sending", page: state.page, busy: true };
+      return {
+        name: "sending",
+        page: state.page,
+        idempotencyKey: state.idempotencyKey ?? newIdempotencyKey(),
+        busy: true,
+      };
     case "acknowledge": {
       const offline = event.offline === true;
       if (state.name === "unavailable") {
@@ -141,7 +177,7 @@ export function reducePopup(state: PopupPhase, event: PopupEvent): PopupPhase {
       };
     }
     case "done":
-      if (state.name !== "success") return state;
+      if (state.name !== "success" && state.name !== "mockSuccess") return state;
       return { name: "idle", busy: false };
     case "connectivity":
       if (state.name !== "ready") return state;
@@ -198,6 +234,18 @@ function copyFor(state: PopupPhase): Omit<PopupView, "busy"> {
         primaryDisabled: false,
         announcement: "Sent to reMarkable Inbox as EPUB.",
       };
+    case "mockSuccess":
+      return {
+        ...preview(state.page),
+        showMeta: false,
+        status: "Test mode",
+        detail: mockSuccessDetail,
+        footnote: "",
+        primaryLabel: "Done",
+        primaryAction: "done",
+        primaryDisabled: false,
+        announcement: mockSuccessDetail,
+      };
     case "unavailable":
       return {
         ...preview(state.page),
@@ -217,22 +265,30 @@ function copyFor(state: PopupPhase): Omit<PopupView, "busy"> {
   }
 }
 
-/** Success is only for a real upload. The stub sets `implemented` false or omits it. */
+/** Sent is only for a real upload. A mock stays on its own screen, and a stub stays unavailable. */
 export function eventForUploadResult(result: {
   ok: boolean;
   message: string;
   implemented?: boolean;
+  mock?: boolean;
   errorKind?: ErrorKind;
 }): PopupEvent {
+  if (result.ok && result.mock === true) return { type: "uploadMocked" };
   if (result.ok && result.implemented === true) return { type: "uploadSucceeded" };
   if (result.ok) return { type: "uploadUnavailable" };
   if (result.errorKind) return { type: "uploadFailed", kind: result.errorKind };
   return { type: "uploadFailed", kind: errorKindForUploadFailure(result.message) };
 }
 
+/** A real success closes itself. Mock success stays up so the test-mode line can be read. */
+export function autoDismisses(state: PopupPhase): boolean {
+  return state.name === "success";
+}
+
 /** Fallback when the app omits `errorKind`. Never returns a kind that clears the stored token. */
 export function errorKindForUploadFailure(message: string): ErrorKind {
   const text = message.toLowerCase();
+  if (text.includes("timed out") || text.includes("timeout")) return "timeout";
   if (/\btoo many\b/.test(text) || /\brate\b/.test(text)) return "rateLimit";
   if (text.includes("offline") || text.includes("network") || text.includes("connection")) return "network";
   if (text.includes("did not answer") || text.includes("unreadable") || text.includes("empty message")) {
@@ -264,6 +320,7 @@ function readyCopy(state: Extract<PopupPhase, { name: "ready" }>): Omit<PopupVie
 function errorCopy(kind: ErrorKind, page?: PagePreview, afterSend = false): Omit<PopupView, "busy"> {
   const table: Record<ErrorKind, Omit<PopupView, "busy">> = {
     network: view("Couldn’t send", "Check your connection and try again.", "Retry", "retry-send"),
+    timeout: view("Timed out", "The send took too long. Try again.", "Retry", "retry-send"),
     notPaired: {
       ...view("Pairing required", "Open Page to Paper and pair your reMarkable.", "Re-pair", "open-app"),
       secondaryLabel: "Retry",

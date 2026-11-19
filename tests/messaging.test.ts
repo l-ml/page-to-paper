@@ -4,8 +4,10 @@ import {
   containingAppNativeId,
   findForbiddenSecretKey,
   isExtractRequest,
+  isIdempotencyKey,
   limits,
   messageTypes,
+  newIdempotencyKey,
   parseArticleDraft,
   parsePairingStatus,
   parseUploadResult,
@@ -114,26 +116,71 @@ describe("parseArticleDraft", () => {
 });
 
 describe("buildUploadRequest", () => {
+  const key = "11111111-1111-4111-8111-111111111111";
+
   it("builds the native uploadArticle shape without optional empties", () => {
-    expect(buildUploadRequest({ title: "Note", url: "https://example.com/a" })).toEqual({
+    expect(buildUploadRequest({ title: "Note", url: "https://example.com/a" }, key)).toEqual({
       type: "uploadArticle",
+      idempotencyKey: key,
       draft: { title: "Note", url: "https://example.com/a" },
     });
   });
 
   it("keeps html and byline when they are present", () => {
-    const request = buildUploadRequest({
-      title: "Note",
-      url: "https://example.com/a",
-      html: "<p>Hi</p>",
-      byline: "Ada",
+    const request = buildUploadRequest(
+      {
+        title: "Note",
+        url: "https://example.com/a",
+        html: "<p>Hi</p>",
+        byline: "Ada",
+      },
+      key,
+    );
+    expect(request).toEqual({
+      type: "uploadArticle",
+      idempotencyKey: key,
+      draft: {
+        title: "Note",
+        url: "https://example.com/a",
+        html: "<p>Hi</p>",
+        byline: "Ada",
+      },
     });
-    expect(request.draft).toEqual({
-      title: "Note",
-      url: "https://example.com/a",
-      html: "<p>Hi</p>",
-      byline: "Ada",
+  });
+
+  it("rejects an empty, oversized, or odd idempotency key", () => {
+    const draft = { title: "Note", url: "https://example.com/a" };
+    expect(() => buildUploadRequest(draft, "")).toThrow(/Idempotency key/);
+    expect(() => buildUploadRequest(draft, "short")).toThrow(MessageShapeError);
+    expect(() => buildUploadRequest(draft, `${"a".repeat(80)}x`)).toThrow(MessageShapeError);
+    expect(() => buildUploadRequest(draft, "has space-key")).toThrow(MessageShapeError);
+    expect(() => buildUploadRequest(draft, "slash/key")).toThrow(MessageShapeError);
+    expect(() => buildUploadRequest(draft, "dots.not.ok")).toThrow(MessageShapeError);
+    expect(isIdempotencyKey(key)).toBe(true);
+  });
+});
+
+describe("newIdempotencyKey", () => {
+  it("returns a key the native parser accepts", () => {
+    const key = newIdempotencyKey();
+    expect(isIdempotencyKey(key)).toBe(true);
+    expect(key).not.toBe(newIdempotencyKey());
+  });
+
+  it("falls back when randomUUID is missing or returns an unusable value", () => {
+    const cryptoObject = globalThis.crypto;
+    vi.stubGlobal("crypto", { ...cryptoObject, randomUUID: undefined });
+    expect(isIdempotencyKey(newIdempotencyKey())).toBe(true);
+    vi.stubGlobal("crypto", {
+      ...cryptoObject,
+      randomUUID: () => {
+        throw new Error("unavailable");
+      },
     });
+    expect(isIdempotencyKey(newIdempotencyKey())).toBe(true);
+    vi.stubGlobal("crypto", { ...cryptoObject, randomUUID: () => "not a key" });
+    expect(isIdempotencyKey(newIdempotencyKey())).toBe(true);
+    vi.stubGlobal("crypto", cryptoObject);
   });
 });
 
@@ -154,6 +201,25 @@ describe("parseUploadResult", () => {
       errorKind: "notPaired",
     });
     expect(parseUploadResult({ ok: false, message: "Nope", errorKind: "made-up" }).errorKind).toBeUndefined();
+    expect(
+      parseUploadResult({
+        ok: true,
+        message: "Test mode: nothing was uploaded to your reMarkable.",
+        implemented: false,
+        mock: true,
+        documentId: "mock-11111111-1111-4111-8111-111111111111",
+      }),
+    ).toEqual({
+      ok: true,
+      message: "Test mode: nothing was uploaded to your reMarkable.",
+      implemented: false,
+      mock: true,
+      documentId: "mock-11111111-1111-4111-8111-111111111111",
+    });
+    expect(parseUploadResult({ ok: true, message: "Stub accepted.", mock: "true" }).mock).toBeUndefined();
+    expect(parseUploadResult({ ok: false, message: "The send timed out.", errorKind: "timeout" }).errorKind).toBe(
+      "timeout",
+    );
   });
 
   it("turns an unreadable or secret-bearing payload into a failure", () => {
