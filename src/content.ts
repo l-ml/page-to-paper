@@ -9,7 +9,16 @@ function readByline(): string | undefined {
   return undefined;
 }
 
-const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+interface GraphemeSegmenter {
+  segment(input: string): Iterable<{ segment: string }>;
+}
+
+const Segmenter = (
+  Intl as unknown as {
+    Segmenter: new (locales: undefined, options: { granularity: "grapheme" }) => GraphemeSegmenter;
+  }
+).Segmenter;
+const graphemes = new Segmenter(undefined, { granularity: "grapheme" });
 
 /** Stops on a whole grapheme, and never exceeds `max` UTF-16 units (what `parseArticleDraft` checks). */
 function clip(value: string, max: number): string {

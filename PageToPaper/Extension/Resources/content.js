@@ -68,7 +68,8 @@
     }
     return void 0;
   }
-  var graphemes = new Intl.Segmenter(void 0, { granularity: "grapheme" });
+  var Segmenter = Intl.Segmenter;
+  var graphemes = new Segmenter(void 0, { granularity: "grapheme" });
   function clip(value, max) {
     const trimmed = value.trim();
     if (trimmed.length <= max) return trimmed;
