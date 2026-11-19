@@ -106,14 +106,11 @@
     return message ? message : void 0;
   }
   function messageType(message) {
-    if (isRecord2(message) && typeof message.type === "string") return message.type;
+    if (isRecord(message) && typeof message.type === "string") return message.type;
     return "unknown";
   }
-  function isRecord2(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-  }
   function isPromise(value) {
-    return isRecord2(value) && typeof value.then === "function";
+    return isRecord(value) && typeof value.then === "function";
   }
 
   // src/background.ts
@@ -148,6 +145,6 @@
     }
   }
   function isNativeRequest(message) {
-    return typeof message === "object" && message !== null && !Array.isArray(message) && message.type === "nativeRequest" && "payload" in message;
+    return isRecord(message) && message.type === "nativeRequest" && "payload" in message;
   }
 })();

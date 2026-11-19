@@ -1,6 +1,6 @@
 import { popupCopy, type PopupPhase } from "./popupState";
 
-function element<T extends Element>(doc: Document, selector: string, ctor: new () => T): T {
+export function element<T extends Element>(doc: Document, selector: string, ctor: new () => T): T {
   const node = doc.querySelector(selector);
   if (!(node instanceof ctor)) {
     throw new Error(`Missing ${selector}`);

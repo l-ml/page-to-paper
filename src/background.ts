@@ -1,3 +1,4 @@
+import { isRecord } from "./messaging";
 import { callNative } from "./nativeCall";
 
 // Manifest V3 service worker. Native messaging runs here so a stuck
@@ -36,11 +37,5 @@ function reply(sendResponse: (response?: unknown) => void, body: unknown): void 
 }
 
 function isNativeRequest(message: unknown): message is { type: "nativeRequest"; payload: unknown } {
-  return (
-    typeof message === "object" &&
-    message !== null &&
-    !Array.isArray(message) &&
-    (message as { type?: unknown }).type === "nativeRequest" &&
-    "payload" in message
-  );
+  return isRecord(message) && message.type === "nativeRequest" && "payload" in message;
 }

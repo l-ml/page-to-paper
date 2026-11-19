@@ -1,7 +1,7 @@
 import { assignPairingLink, pairingDeepLink, type PairingDeepLinkReason } from "./appLink";
 import { clearStoredPairing, queryPaired, readActivePage, uploadDraft } from "./capture";
 import { requestNative } from "./nativeCall";
-import { renderPopup } from "./popupRender";
+import { element, renderPopup } from "./popupRender";
 import { createPopupSession } from "./popupSession";
 import {
   eventForUploadResult,
@@ -16,14 +16,6 @@ const session = createPopupSession({
 });
 
 let dismissTimer: ReturnType<typeof setTimeout> | undefined;
-
-function element<T extends Element>(selector: string, ctor: new () => T): T {
-  const node = document.querySelector(selector);
-  if (!(node instanceof ctor)) {
-    throw new Error(`Missing ${selector}`);
-  }
-  return node;
-}
 
 function dispatch(message: unknown): Promise<unknown> {
   return requestNative(message, (body) => browser.runtime.sendMessage(body));
@@ -139,7 +131,7 @@ function runAction(action: PopupAction | undefined, reason: PairingDeepLinkReaso
   }
 }
 
-element("#primary", HTMLButtonElement).addEventListener("click", () => {
+element(document, "#primary", HTMLButtonElement).addEventListener("click", () => {
   const view = popupCopy(session.phase());
   if (view.primaryDisabled) return;
   if (view.clearPairing && view.openReason) {
@@ -149,7 +141,7 @@ element("#primary", HTMLButtonElement).addEventListener("click", () => {
   runAction(view.primaryAction, view.openReason);
 });
 
-element("#secondary", HTMLButtonElement).addEventListener("click", () => {
+element(document, "#secondary", HTMLButtonElement).addEventListener("click", () => {
   const view = popupCopy(session.phase());
   runAction(view.secondaryAction, view.openReason);
 });

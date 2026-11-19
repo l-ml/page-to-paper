@@ -489,11 +489,11 @@
         (response) => {
           clearTimeout(timer);
           console.info(`[page-to-paper] popup \u2190 background ${type}`);
-          if (isRecord2(response) && response.ok === true && "value" in response) {
+          if (isRecord(response) && response.ok === true && "value" in response) {
             resolve(response.value);
             return;
           }
-          const detail = isRecord2(response) && typeof response.message === "string" ? response.message : timeoutMessage;
+          const detail = isRecord(response) && typeof response.message === "string" ? response.message : timeoutMessage;
           reject(new Error(detail));
         },
         (error) => {
@@ -505,11 +505,8 @@
     });
   }
   function messageType(message) {
-    if (isRecord2(message) && typeof message.type === "string") return message.type;
+    if (isRecord(message) && typeof message.type === "string") return message.type;
     return "unknown";
-  }
-  function isRecord2(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
   }
 
   // src/popupRender.ts
@@ -602,13 +599,6 @@
     render: (phase) => renderPopup(document, phase)
   });
   var dismissTimer;
-  function element2(selector, ctor) {
-    const node = document.querySelector(selector);
-    if (!(node instanceof ctor)) {
-      throw new Error(`Missing ${selector}`);
-    }
-    return node;
-  }
   function dispatch(message) {
     return requestNative(message, (body) => browser.runtime.sendMessage(body));
   }
@@ -714,7 +704,7 @@
       session.commit({ type: "acknowledge", offline: navigator.onLine === false });
     }
   }
-  element2("#primary", HTMLButtonElement).addEventListener("click", () => {
+  element(document, "#primary", HTMLButtonElement).addEventListener("click", () => {
     const view2 = popupCopy(session.phase());
     if (view2.primaryDisabled) return;
     if (view2.clearPairing && view2.openReason) {
@@ -723,7 +713,7 @@
     }
     runAction(view2.primaryAction, view2.openReason);
   });
-  element2("#secondary", HTMLButtonElement).addEventListener("click", () => {
+  element(document, "#secondary", HTMLButtonElement).addEventListener("click", () => {
     const view2 = popupCopy(session.phase());
     runAction(view2.secondaryAction, view2.openReason);
   });

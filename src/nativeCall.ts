@@ -1,4 +1,4 @@
-import { containingAppNativeId, findForbiddenSecretKey, MessageShapeError } from "./messaging";
+import { containingAppNativeId, findForbiddenSecretKey, isRecord, MessageShapeError } from "./messaging";
 import { nativeCallTimeoutMs } from "./popupState";
 
 /** Callback form plus an optional promise. Safari invokes the callback; the promise can hang. */
@@ -102,10 +102,6 @@ function nativeLastError(): string | undefined {
 function messageType(message: unknown): string {
   if (isRecord(message) && typeof message.type === "string") return message.type;
   return "unknown";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isPromise(value: unknown): value is Promise<unknown> {
