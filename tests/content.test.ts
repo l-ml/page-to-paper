@@ -25,6 +25,9 @@ describe("articleFields", () => {
     expect(fields.title).toHaveLength(limits.title);
     expect(fields.byline).toHaveLength(limits.byline);
     expect(fields.url.length).toBeGreaterThan(limits.url);
+    const emoji = "😀";
+    const aroundEmoji = `${"a".repeat(limits.title - 1)}${emoji}`;
+    expect(articleFields(aroundEmoji, "https://news.example/ok").title).toBe(aroundEmoji);
   });
 });
 

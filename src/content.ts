@@ -11,7 +11,8 @@ function readByline(): string | undefined {
 
 function clip(value: string, max: number): string {
   const trimmed = value.trim();
-  return trimmed.length <= max ? trimmed : trimmed.slice(0, max);
+  const characters = Array.from(trimmed);
+  return characters.length <= max ? trimmed : characters.slice(0, max).join("");
 }
 
 /** Title and byline are clipped to the shared limits. The URL is left intact so an over-long one can be rejected as unsupported. */

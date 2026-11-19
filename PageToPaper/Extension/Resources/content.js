@@ -70,7 +70,8 @@
   }
   function clip(value, max) {
     const trimmed = value.trim();
-    return trimmed.length <= max ? trimmed : trimmed.slice(0, max);
+    const characters = Array.from(trimmed);
+    return characters.length <= max ? trimmed : characters.slice(0, max).join("");
   }
   function articleFields(title, url, byline) {
     const fields = {
