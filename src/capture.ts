@@ -2,6 +2,7 @@ import {
   buildUploadRequest,
   MessageShapeError,
   messageTypes,
+  type MessageShapeCode,
   parseArticleDraft,
   parsePairingStatus,
   parseUploadResult,
@@ -31,11 +32,17 @@ export async function readActivePage(deps: ReadDependencies): Promise<PageRead> 
     await deps.inject(tab.id);
     return { ok: true, draft: parseArticleDraft(await deps.extract(tab.id)) };
   } catch (error) {
-    if (error instanceof MessageShapeError && error.message.includes("URL is too long")) {
+    if (error instanceof MessageShapeError && isUnsupportedUrl(error.code)) {
       return { ok: false, reason: "unsupported" };
     }
     return { ok: false, reason: "unread" };
   }
+}
+
+const unsupportedUrlCodes: readonly MessageShapeCode[] = ["urlTooLong", "urlScheme", "urlCredentials", "urlInvalid"];
+
+function isUnsupportedUrl(code: MessageShapeCode | undefined): boolean {
+  return code !== undefined && unsupportedUrlCodes.includes(code);
 }
 
 export async function queryPaired(dispatch: NativeDispatch): Promise<PairingQuery> {

@@ -84,10 +84,15 @@ export interface UploadResult {
   errorKind?: UploadErrorKind;
 }
 
+export type MessageShapeCode = "urlTooLong" | "urlScheme" | "urlCredentials" | "urlInvalid";
+
 export class MessageShapeError extends Error {
-  constructor(message: string) {
+  readonly code?: MessageShapeCode;
+
+  constructor(message: string, code?: MessageShapeCode) {
     super(message);
     this.name = "MessageShapeError";
+    this.code = code;
   }
 }
 
@@ -156,22 +161,22 @@ export function parseArticleDraft(value: unknown): ArticleDraft {
   }
   const rawURL = value.url.trim();
   if (rawURL.length > limits.url) {
-    throw new MessageShapeError("Article URL is too long.");
+    throw new MessageShapeError("Article URL is too long.", "urlTooLong");
   }
   let url: URL;
   try {
     url = new URL(rawURL);
   } catch {
-    throw new MessageShapeError("Article URL is invalid.");
+    throw new MessageShapeError("Article URL is invalid.", "urlInvalid");
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new MessageShapeError("Article URL must be http or https.");
+    throw new MessageShapeError("Article URL must be http or https.", "urlScheme");
   }
   if (url.username || url.password) {
-    throw new MessageShapeError("Article URL must not include credentials.");
+    throw new MessageShapeError("Article URL must not include credentials.", "urlCredentials");
   }
   if (!url.hostname) {
-    throw new MessageShapeError("Article URL is invalid.");
+    throw new MessageShapeError("Article URL is invalid.", "urlInvalid");
   }
   const draft: ArticleDraft = { title, url: url.toString() };
   const html = optionalText(value.html, limits.html, "Article HTML");

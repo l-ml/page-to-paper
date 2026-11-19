@@ -22,9 +22,10 @@
   }
   var containingAppNativeId = "application";
   var MessageShapeError = class extends Error {
-    constructor(message) {
+    constructor(message, code) {
       super(message);
       this.name = "MessageShapeError";
+      this.code = code;
     }
   };
   function isRecord(value) {

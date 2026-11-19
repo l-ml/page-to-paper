@@ -40,11 +40,18 @@ describe("parseArticleDraft", () => {
 
   it("rejects a missing title, a bad URL, and credentials", () => {
     expect(() => parseArticleDraft({ url: "https://example.com" })).toThrow(MessageShapeError);
-    expect(() => parseArticleDraft({ title: "Note", url: "javascript:alert(1)" })).toThrow(/http or https/);
-    expect(() => parseArticleDraft({ title: "Note", url: "https://user:secret@example.com/a" })).toThrow(
-      /credentials/,
+    expect(() => parseArticleDraft({ title: "Note", url: "javascript:alert(1)" })).toThrow(
+      expect.objectContaining({ code: "urlScheme" }),
     );
-    expect(() => parseArticleDraft({ title: "Note", url: "not a url" })).toThrow(MessageShapeError);
+    expect(() => parseArticleDraft({ title: "Note", url: "https://user:secret@example.com/a" })).toThrow(
+      expect.objectContaining({ code: "urlCredentials" }),
+    );
+    expect(() => parseArticleDraft({ title: "Note", url: "not a url" })).toThrow(
+      expect.objectContaining({ code: "urlInvalid" }),
+    );
+    expect(() =>
+      parseArticleDraft({ title: "Note", url: `https://example.com/${"a".repeat(limits.url)}` }),
+    ).toThrow(expect.objectContaining({ code: "urlTooLong" }));
   });
 
   it("rejects over-long fields", () => {

@@ -39,7 +39,13 @@ describe("readActivePage", () => {
     });
     expect(extract).not.toHaveBeenCalled();
     expect(unread).toEqual({ ok: false, reason: "unread" });
-    expect(invalid).toEqual({ ok: false, reason: "unread" });
+    expect(invalid).toEqual({ ok: false, reason: "unsupported" });
+    const missingTitle = await readActivePage({
+      queryActiveTab: async () => ({ id: 3 }),
+      inject: async () => {},
+      extract: async () => ({ type: "articleDraft", url: "https://news.example/a" }),
+    });
+    expect(missingTitle).toEqual({ ok: false, reason: "unread" });
     const longUrl = `https://news.example/${"a".repeat(2100)}`;
     const tooLong = await readActivePage({
       queryActiveTab: async () => ({ id: 3 }),
@@ -47,6 +53,18 @@ describe("readActivePage", () => {
       extract: async () => ({ type: "articleDraft", title: "Dispatch", url: longUrl }),
     });
     expect(tooLong).toEqual({ ok: false, reason: "unsupported" });
+    const scheme = await readActivePage({
+      queryActiveTab: async () => ({ id: 3 }),
+      inject: async () => {},
+      extract: async () => ({ type: "articleDraft", title: "Note", url: "javascript:alert(1)" }),
+    });
+    const withSecret = await readActivePage({
+      queryActiveTab: async () => ({ id: 3 }),
+      inject: async () => {},
+      extract: async () => ({ type: "articleDraft", title: "Note", url: "https://user:secret@example.com/a" }),
+    });
+    expect(scheme).toEqual({ ok: false, reason: "unsupported" });
+    expect(withSecret).toEqual({ ok: false, reason: "unsupported" });
   });
 });
 

@@ -56,9 +56,10 @@
     "pageUnread"
   ];
   var MessageShapeError = class extends Error {
-    constructor(message) {
+    constructor(message, code) {
       super(message);
       this.name = "MessageShapeError";
+      this.code = code;
     }
   };
   function isRecord(value) {
@@ -117,22 +118,22 @@
     }
     const rawURL = value.url.trim();
     if (rawURL.length > limits.url) {
-      throw new MessageShapeError("Article URL is too long.");
+      throw new MessageShapeError("Article URL is too long.", "urlTooLong");
     }
     let url;
     try {
       url = new URL(rawURL);
     } catch {
-      throw new MessageShapeError("Article URL is invalid.");
+      throw new MessageShapeError("Article URL is invalid.", "urlInvalid");
     }
     if (url.protocol !== "http:" && url.protocol !== "https:") {
-      throw new MessageShapeError("Article URL must be http or https.");
+      throw new MessageShapeError("Article URL must be http or https.", "urlScheme");
     }
     if (url.username || url.password) {
-      throw new MessageShapeError("Article URL must not include credentials.");
+      throw new MessageShapeError("Article URL must not include credentials.", "urlCredentials");
     }
     if (!url.hostname) {
-      throw new MessageShapeError("Article URL is invalid.");
+      throw new MessageShapeError("Article URL is invalid.", "urlInvalid");
     }
     const draft = { title, url: url.toString() };
     const html = optionalText(value.html, limits.html, "Article HTML");
@@ -197,11 +198,15 @@
       await deps.inject(tab.id);
       return { ok: true, draft: parseArticleDraft(await deps.extract(tab.id)) };
     } catch (error) {
-      if (error instanceof MessageShapeError && error.message.includes("URL is too long")) {
+      if (error instanceof MessageShapeError && isUnsupportedUrl(error.code)) {
         return { ok: false, reason: "unsupported" };
       }
       return { ok: false, reason: "unread" };
     }
+  }
+  var unsupportedUrlCodes = ["urlTooLong", "urlScheme", "urlCredentials", "urlInvalid"];
+  function isUnsupportedUrl(code) {
+    return code !== void 0 && unsupportedUrlCodes.includes(code);
   }
   async function queryPaired(dispatch2) {
     try {
