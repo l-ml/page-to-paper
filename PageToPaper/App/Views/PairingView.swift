@@ -97,17 +97,19 @@ struct PairingView: View {
             Button("Sign out", role: .destructive, action: signOut)
             Button("Cancel", role: .cancel) {}
         }
-        .confirmationDialog("Re-pair this device?", isPresented: $confirmRepair, titleVisibility: .visible) {
-            Button("Re-pair", role: .destructive, action: repair)
+        .confirmationDialog("Enter a new pairing code?", isPresented: $confirmRepair, titleVisibility: .visible) {
+            Button("Re-pair", action: repair)
             Button("Cancel", role: .cancel) {}
         }
     }
 
     private var status: some View {
-        Label(paired ? "Connected" : "Not paired", systemImage: paired ? "checkmark.circle" : "link")
+        let title = replacing ? "New code" : (paired ? "Connected" : "Not paired")
+        let symbol = paired && !replacing ? "checkmark.circle" : "link"
+        return Label(title, systemImage: symbol)
             .font(.title2)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel(paired ? "Connected" : "Not paired")
+            .accessibilityLabel(title)
     }
 
     private func refresh() {
