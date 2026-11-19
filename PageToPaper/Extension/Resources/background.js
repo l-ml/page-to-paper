@@ -73,6 +73,12 @@
       }, nativeCallTimeoutMs);
       try {
         const maybe = messenger(containingAppNativeId, message, (response) => {
+          const failure = nativeLastError();
+          if (failure) {
+            console.warn(`[page-to-paper] background native lastError ${type} ${failure}`);
+            finish(false, new Error(failure));
+            return;
+          }
           console.info(`[page-to-paper] background native callback ${type}`);
           finish(true, response);
         });
@@ -93,6 +99,11 @@
         finish(false, error);
       }
     });
+  }
+  function nativeLastError() {
+    if (typeof browser === "undefined") return void 0;
+    const message = browser.runtime.lastError?.message;
+    return message ? message : void 0;
   }
   function messageType(message) {
     if (isRecord2(message) && typeof message.type === "string") return message.type;

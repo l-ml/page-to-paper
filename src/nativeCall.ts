@@ -31,6 +31,12 @@ export function callNative(message: unknown, messenger: NativeMessenger): Promis
     }, nativeCallTimeoutMs);
     try {
       const maybe = messenger(containingAppNativeId, message, (response) => {
+        const failure = nativeLastError();
+        if (failure) {
+          console.warn(`[page-to-paper] background native lastError ${type} ${failure}`);
+          finish(false, new Error(failure));
+          return;
+        }
         console.info(`[page-to-paper] background native callback ${type}`);
         finish(true, response);
       });
@@ -85,6 +91,12 @@ export function requestNative(
       },
     );
   });
+}
+
+function nativeLastError(): string | undefined {
+  if (typeof browser === "undefined") return undefined;
+  const message = browser.runtime.lastError?.message;
+  return message ? message : undefined;
 }
 
 function messageType(message: unknown): string {

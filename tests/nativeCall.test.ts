@@ -29,6 +29,19 @@ describe("callNative", () => {
     ).rejects.toThrow(/bridge missing/);
   });
 
+  it("rejects the callback when Safari sets lastError", async () => {
+    vi.stubGlobal("browser", { runtime: { lastError: { message: "Could not connect to the app." } } });
+    try {
+      await expect(
+        callNative({ type: "pairingStatus" }, (_application, _message, callback) => {
+          callback(undefined);
+        }),
+      ).rejects.toThrow(/Could not connect to the app/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("resolves from the callback when no promise is returned", async () => {
     const value = await callNative({ type: "pairingStatus" }, (_application, _message, callback) => {
       callback({ paired: true });
