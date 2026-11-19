@@ -8,7 +8,6 @@ struct PairingView: View {
     @State private var code = ""
     @State private var showsError = false
     @State private var confirmSignOut = false
-    @State private var confirmRepair = false
     @State private var replacing = false
 
     var body: some View {
@@ -26,9 +25,7 @@ struct PairingView: View {
                     }
                     .buttonStyle(.bordered)
                     .foregroundColor(.red)
-                    Button {
-                        confirmRepair = true
-                    } label: {
+                    Button(action: repair) {
                         Text("Re-pair")
                             .frame(maxWidth: .infinity, minHeight: 44)
                     }
@@ -95,10 +92,6 @@ struct PairingView: View {
         }
         .confirmationDialog("Sign out of reMarkable on this device?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Sign out", role: .destructive, action: signOut)
-            Button("Cancel", role: .cancel) {}
-        }
-        .confirmationDialog("Enter a new pairing code?", isPresented: $confirmRepair, titleVisibility: .visible) {
-            Button("Re-pair", action: repair)
             Button("Cancel", role: .cancel) {}
         }
     }
