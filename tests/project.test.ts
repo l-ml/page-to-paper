@@ -98,12 +98,16 @@ describe("checked-in project files", () => {
 
   it("builds the same extension scripts that are committed", () => {
     const outdir = fs.mkdtempSync(path.join(os.tmpdir(), "page-to-paper-"));
-    execFileSync("node", ["esbuild.config.mjs"], {
-      encoding: "utf8",
-      env: { ...process.env, EXTENSION_OUTDIR: outdir },
-    });
-    for (const name of ["background.js", "content.js", "popup.js"]) {
-      expect(fs.readFileSync(path.join(outdir, name), "utf8")).toBe(read(`PageToPaper/Extension/Resources/${name}`));
+    try {
+      execFileSync("node", ["esbuild.config.mjs"], {
+        encoding: "utf8",
+        env: { ...process.env, EXTENSION_OUTDIR: outdir },
+      });
+      for (const name of ["background.js", "content.js", "popup.js"]) {
+        expect(fs.readFileSync(path.join(outdir, name), "utf8")).toBe(read(`PageToPaper/Extension/Resources/${name}`));
+      }
+    } finally {
+      fs.rmSync(outdir, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 });
