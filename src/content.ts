@@ -13,19 +13,26 @@ interface GraphemeSegmenter {
   segment(input: string): Iterable<{ segment: string }>;
 }
 
-const Segmenter = (
-  Intl as unknown as {
-    Segmenter: new (locales: undefined, options: { granularity: "grapheme" }) => GraphemeSegmenter;
+function segmentsOf(value: string): Iterable<string> {
+  const Segmenter = (
+    Intl as unknown as {
+      Segmenter?: new (locales: undefined, options: { granularity: "grapheme" }) => GraphemeSegmenter;
+    }
+  ).Segmenter;
+  if (typeof Segmenter !== "function") return Array.from(value);
+  try {
+    return Array.from(new Segmenter(undefined, { granularity: "grapheme" }).segment(value), (part) => part.segment);
+  } catch {
+    return Array.from(value);
   }
-).Segmenter;
-const graphemes = new Segmenter(undefined, { granularity: "grapheme" });
+}
 
 /** Stops on a whole grapheme, and never exceeds `max` UTF-16 units (what `parseArticleDraft` checks). */
 function clip(value: string, max: number): string {
   const trimmed = value.trim();
   if (trimmed.length <= max) return trimmed;
   let out = "";
-  for (const { segment } of graphemes.segment(trimmed)) {
+  for (const segment of segmentsOf(trimmed)) {
     if (out.length + segment.length > max) break;
     out += segment;
   }

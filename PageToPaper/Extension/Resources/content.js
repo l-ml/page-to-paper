@@ -68,13 +68,20 @@
     }
     return void 0;
   }
-  var Segmenter = Intl.Segmenter;
-  var graphemes = new Segmenter(void 0, { granularity: "grapheme" });
+  function segmentsOf(value) {
+    const Segmenter = Intl.Segmenter;
+    if (typeof Segmenter !== "function") return Array.from(value);
+    try {
+      return Array.from(new Segmenter(void 0, { granularity: "grapheme" }).segment(value), (part) => part.segment);
+    } catch {
+      return Array.from(value);
+    }
+  }
   function clip(value, max) {
     const trimmed = value.trim();
     if (trimmed.length <= max) return trimmed;
     let out = "";
-    for (const { segment } of graphemes.segment(trimmed)) {
+    for (const segment of segmentsOf(trimmed)) {
       if (out.length + segment.length > max) break;
       out += segment;
     }
