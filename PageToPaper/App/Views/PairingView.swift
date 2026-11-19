@@ -9,12 +9,13 @@ struct PairingView: View {
     @State private var showsError = false
     @State private var confirmSignOut = false
     @State private var confirmRepair = false
+    @State private var replacing = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 status
-                if paired {
+                if paired && !replacing {
                     Text("This device can send EPUBs to your reMarkable Inbox.")
                         .font(.body)
                     Button {
@@ -51,6 +52,15 @@ struct PairingView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(!PairingCode.isValid(code))
+                    if replacing {
+                        Button("Cancel") {
+                            replacing = false
+                            code = ""
+                            showsError = false
+                            refresh()
+                        }
+                        .frame(minHeight: 44)
+                    }
                     if showsError {
                         Text("Couldn’t pair. Check the code and try again.")
                             .font(.footnote)
@@ -101,6 +111,7 @@ struct PairingView: View {
     }
 
     private func refresh() {
+        if replacing { return }
         paired = RemarkableAuth().isPaired()
         if paired {
             showsError = false
@@ -118,6 +129,7 @@ struct PairingView: View {
             code = ""
             showsError = false
             reason = nil
+            replacing = false
             refresh()
         } else {
             showsError = true
@@ -133,10 +145,9 @@ struct PairingView: View {
     }
 
     private func repair() {
-        RemarkableAuth().signOut()
         code = ""
         showsError = false
         reason = nil
-        refresh()
+        replacing = true
     }
 }
