@@ -9,14 +9,16 @@ function readByline(): string | undefined {
   return undefined;
 }
 
-/** Stops on a whole character, and never exceeds `max` UTF-16 units (what `parseArticleDraft` checks). */
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+/** Stops on a whole grapheme, and never exceeds `max` UTF-16 units (what `parseArticleDraft` checks). */
 function clip(value: string, max: number): string {
   const trimmed = value.trim();
   if (trimmed.length <= max) return trimmed;
   let out = "";
-  for (const character of trimmed) {
-    if (out.length + character.length > max) break;
-    out += character;
+  for (const { segment } of graphemes.segment(trimmed)) {
+    if (out.length + segment.length > max) break;
+    out += segment;
   }
   return out;
 }

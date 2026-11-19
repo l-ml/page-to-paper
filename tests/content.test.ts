@@ -35,6 +35,10 @@ describe("articleFields", () => {
     expect(many.title.length).toBeLessThanOrEqual(limits.title);
     expect(many.byline!.length).toBeLessThanOrEqual(limits.byline);
     expect(() => parseArticleDraft({ type: "articleDraft", title: many.title, url: many.url, byline: many.byline })).not.toThrow();
+    const family = "👨‍👩‍👧";
+    const split = articleFields(`${"a".repeat(limits.title - 2)}${family}`, "https://news.example/ok");
+    expect(split.title).toBe("a".repeat(limits.title - 2));
+    expect(split.title).not.toContain("\u200d");
   });
 });
 
