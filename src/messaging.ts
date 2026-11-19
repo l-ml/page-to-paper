@@ -7,6 +7,10 @@ export const limits = {
   documentId: 200,
 } as const;
 
+// Keep in sync with IdempotencyKey.minimumCount and maximumCount.
+export const idempotencyKeyMin = 8;
+export const idempotencyKeyMax = 80;
+
 export const messageTypes = {
   extractArticle: "extractArticle",
   articleDraft: "articleDraft",
@@ -57,12 +61,14 @@ export interface ArticleDraft {
 
 export interface UploadRequest {
   type: typeof messageTypes.uploadArticle;
+  idempotencyKey: string;
   draft: ArticleDraft;
 }
 
 /** Kinds the app may set on a failed upload. The popup must not invent the token-clearing ones from message text. */
 export const uploadErrorKinds = [
   "network",
+  "timeout",
   "notPaired",
   "authExpired",
   "rateLimit",
@@ -78,8 +84,10 @@ export interface UploadResult {
   ok: boolean;
   message: string;
   documentId?: string;
-  /** True only when a real upload happened. The stub omits this or sets it false. */
+  /** True only when a real upload happened. A mock result sets this false. */
   implemented?: boolean;
+  /** True when the app used the mock transport. Sent is not shown for that result. */
+  mock?: boolean;
   /** Set by the app. Absent results fall back to a message heuristic that cannot clear pairing. */
   errorKind?: UploadErrorKind;
 }
@@ -204,10 +212,59 @@ export function parseArticleDraft(value: unknown): ArticleDraft {
   return draft;
 }
 
-export function buildUploadRequest(draft: ArticleDraft): UploadRequest {
+/** Letters, digits, and hyphens only. Same rule as IdempotencyKey.parse. */
+export function isIdempotencyKey(value: string): boolean {
+  if (value.length < idempotencyKeyMin || value.length > idempotencyKeyMax) return false;
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    const digit = code >= 48 && code <= 57;
+    const upper = code >= 65 && code <= 90;
+    const lower = code >= 97 && code <= 122;
+    if (!digit && !upper && !lower && code !== 45) return false;
+  }
+  return true;
+}
+
+export function newIdempotencyKey(): string {
+  const generated = readRandomUUID();
+  if (generated && isIdempotencyKey(generated)) return generated;
+  return fallbackIdempotencyKey();
+}
+
+function readRandomUUID(): string | undefined {
+  const randomUUID = globalThis.crypto?.randomUUID;
+  if (typeof randomUUID !== "function") return undefined;
+  try {
+    return randomUUID.call(globalThis.crypto);
+  } catch {
+    return undefined;
+  }
+}
+
+function fallbackIdempotencyKey(): string {
+  const bytes = new Uint8Array(16);
+  const random = globalThis.crypto?.getRandomValues;
+  if (typeof random === "function") {
+    random.call(globalThis.crypto, bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+export function buildUploadRequest(draft: ArticleDraft, idempotencyKey: string): UploadRequest {
   const parsed = parseArticleDraft(draft);
+  if (!isIdempotencyKey(idempotencyKey)) {
+    throw new MessageShapeError("Idempotency key is invalid.");
+  }
   const request: UploadRequest = {
     type: messageTypes.uploadArticle,
+    idempotencyKey,
     draft: { title: parsed.title, url: parsed.url },
   };
   if (parsed.html) request.draft.html = parsed.html;
@@ -228,6 +285,7 @@ export function parseUploadResult(value: unknown): UploadResult {
   }
   const result: UploadResult = { ok: value.ok, message };
   if (typeof value.implemented === "boolean") result.implemented = value.implemented;
+  if (typeof value.mock === "boolean") result.mock = value.mock;
   if (typeof value.errorKind === "string" && (uploadErrorKinds as readonly string[]).includes(value.errorKind)) {
     result.errorKind = value.errorKind as UploadErrorKind;
   }

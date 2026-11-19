@@ -1,4 +1,11 @@
-import { initialPopup, nativeCallTimeoutMs, reducePopup, type PopupEvent, type PopupPhase } from "./popupState";
+import {
+  initialPopup,
+  nativeCallTimeoutMs,
+  reducePopup,
+  uploadRoundTripMs,
+  type PopupEvent,
+  type PopupPhase,
+} from "./popupState";
 
 export interface PopupClock {
   setTimeout: (handler: () => void, ms: number) => ReturnType<typeof setTimeout>;
@@ -40,12 +47,13 @@ export function createPopupSession(options: {
 
   function arm(): void {
     disarm();
+    const budget = phase.name === "sending" ? uploadRoundTripMs : timeoutMs;
     watchdog = clock.setTimeout(() => {
       watchdog = undefined;
       if (!phase.busy) return;
       log(`[page-to-paper] popup watchdog timeout ${phase.name}`);
       commit({ type: "busyTimeout" });
-    }, timeoutMs);
+    }, budget);
   }
 
   function commit(event: PopupEvent): void {

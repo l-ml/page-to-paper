@@ -4,8 +4,10 @@ import { requestNative } from "./nativeCall";
 import { element, renderPopup } from "./popupRender";
 import { createPopupSession } from "./popupSession";
 import {
+  autoDismisses,
   eventForUploadResult,
   dismissClosesPopup,
+  nativeTimeoutMs,
   popupCopy,
   previewFromDraft,
   successDismissMs,
@@ -19,7 +21,7 @@ const session = createPopupSession({
 let dismissTimer: ReturnType<typeof setTimeout> | undefined;
 
 function dispatch(message: unknown): Promise<unknown> {
-  return requestNative(message, (body) => browser.runtime.sendMessage(body));
+  return requestNative(message, (body) => browser.runtime.sendMessage(body), nativeTimeoutMs(message));
 }
 
 function openApp(reason: PairingDeepLinkReason): void {
@@ -73,10 +75,11 @@ async function performUpload(): Promise<void> {
   const current = session.phase();
   if (current.name !== "sending") return;
   const page = current.page;
+  const idempotencyKey = current.idempotencyKey;
   console.info("[page-to-paper] popup send started");
   let event;
   try {
-    event = eventForUploadResult(await uploadDraft(page.draft, dispatch));
+    event = eventForUploadResult(await uploadDraft(page.draft, idempotencyKey, dispatch));
   } catch {
     event = eventForUploadResult({ ok: false, message: "The Page to Paper app did not answer." });
   }
@@ -84,7 +87,7 @@ async function performUpload(): Promise<void> {
   session.commit(event);
   const updated = session.phase();
   console.info(`[page-to-paper] popup UI update ${updated.name}`);
-  if (updated.name === "success") {
+  if (autoDismisses(updated)) {
     dismissTimer = setTimeout(() => {
       finish();
     }, successDismissMs);

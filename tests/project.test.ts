@@ -53,7 +53,12 @@ describe("extension sources", () => {
     expect(read("PageToPaper/Shared/RemarkableAuth.swift")).toContain("stored == data");
     expect(read("PageToPaper/Extension/SafariWebExtensionHandler.swift")).toContain("category: \"native-message\"");
     expect(read("PageToPaper/Extension/SafariWebExtensionHandler.swift")).toContain("completeRequest");
-    expect(read("PageToPaper/Shared/RemarkableCloudClient.swift")).toContain("Nothing was uploaded");
+    expect(read("PageToPaper/Shared/RemarkableCloudClient.swift")).toContain(
+      "Test mode: nothing was uploaded to your reMarkable.",
+    );
+    expect(read("PageToPaper/Shared/RemarkableCloudClient.swift")).toContain("transportTimeout: TimeInterval = 20");
+    expect(read("PageToPaper/Shared/RemarkableCloudClient.swift")).not.toContain("URLSession");
+    expect(read("PageToPaper/Shared/ArticleConverter.swift")).not.toContain("URLSession");
     const handler = read("PageToPaper/Extension/SafariWebExtensionHandler.swift");
     expect(handler).toContain('static let key = "message"');
     expect(handler).not.toContain("SFExtensionMessageKey");
