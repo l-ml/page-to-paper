@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { queryPaired, readActivePage, uploadDraft } from "../src/capture";
+import { limits } from "../src/messaging";
 
 const extracted = {
   type: "articleDraft",
@@ -46,6 +47,12 @@ describe("readActivePage", () => {
       extract: async () => ({ type: "articleDraft", url: "https://news.example/a" }),
     });
     expect(missingTitle).toEqual({ ok: false, reason: "unread" });
+    const longTitle = await readActivePage({
+      queryActiveTab: async () => ({ id: 3 }),
+      inject: async () => {},
+      extract: async () => ({ type: "articleDraft", title: "T".repeat(limits.title + 1), url: "https://news.example/a" }),
+    });
+    expect(longTitle).toEqual({ ok: false, reason: "unsupported" });
     const longUrl = `https://news.example/${"a".repeat(2100)}`;
     const tooLong = await readActivePage({
       queryActiveTab: async () => ({ id: 3 }),

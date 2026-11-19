@@ -32,17 +32,24 @@ export async function readActivePage(deps: ReadDependencies): Promise<PageRead> 
     await deps.inject(tab.id);
     return { ok: true, draft: parseArticleDraft(await deps.extract(tab.id)) };
   } catch (error) {
-    if (error instanceof MessageShapeError && isUnsupportedUrl(error.code)) {
+    if (error instanceof MessageShapeError && isUnsupportedPage(error.code)) {
       return { ok: false, reason: "unsupported" };
     }
     return { ok: false, reason: "unread" };
   }
 }
 
-const unsupportedUrlCodes: readonly MessageShapeCode[] = ["urlTooLong", "urlScheme", "urlCredentials", "urlInvalid"];
+const unsupportedPageCodes: readonly MessageShapeCode[] = [
+  "urlTooLong",
+  "urlScheme",
+  "urlCredentials",
+  "urlInvalid",
+  "titleTooLong",
+  "bylineTooLong",
+];
 
-function isUnsupportedUrl(code: MessageShapeCode | undefined): boolean {
-  return code !== undefined && unsupportedUrlCodes.includes(code);
+function isUnsupportedPage(code: MessageShapeCode | undefined): boolean {
+  return code !== undefined && unsupportedPageCodes.includes(code);
 }
 
 export async function queryPaired(dispatch: NativeDispatch): Promise<PairingQuery> {

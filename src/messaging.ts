@@ -84,7 +84,13 @@ export interface UploadResult {
   errorKind?: UploadErrorKind;
 }
 
-export type MessageShapeCode = "urlTooLong" | "urlScheme" | "urlCredentials" | "urlInvalid";
+export type MessageShapeCode =
+  | "urlTooLong"
+  | "urlScheme"
+  | "urlCredentials"
+  | "urlInvalid"
+  | "titleTooLong"
+  | "bylineTooLong";
 
 export class MessageShapeError extends Error {
   readonly code?: MessageShapeCode;
@@ -123,7 +129,7 @@ function rejectSecrets(value: unknown): void {
   }
 }
 
-function optionalText(value: unknown, max: number, label: string): string | undefined {
+function optionalText(value: unknown, max: number, label: string, code?: MessageShapeCode): string | undefined {
   if (value === undefined || value === null) return undefined;
   if (typeof value !== "string") {
     throw new MessageShapeError(`${label} must be a string.`);
@@ -131,7 +137,7 @@ function optionalText(value: unknown, max: number, label: string): string | unde
   const trimmed = value.trim();
   if (!trimmed) return undefined;
   if (trimmed.length > max) {
-    throw new MessageShapeError(`${label} is too long.`);
+    throw new MessageShapeError(`${label} is too long.`, code);
   }
   return trimmed;
 }
@@ -154,7 +160,7 @@ export function parseArticleDraft(value: unknown): ArticleDraft {
   }
   const title = value.title.trim();
   if (title.length > limits.title) {
-    throw new MessageShapeError("Article title is too long.");
+    throw new MessageShapeError("Article title is too long.", "titleTooLong");
   }
   if (typeof value.url !== "string" || !value.url.trim()) {
     throw new MessageShapeError("Article URL is missing.");
@@ -180,7 +186,7 @@ export function parseArticleDraft(value: unknown): ArticleDraft {
   }
   const draft: ArticleDraft = { title, url: url.toString() };
   const html = optionalText(value.html, limits.html, "Article HTML");
-  const byline = optionalText(value.byline, limits.byline, "Byline");
+  const byline = optionalText(value.byline, limits.byline, "Byline", "bylineTooLong");
   if (html) draft.html = html;
   if (byline) draft.byline = byline;
   return draft;

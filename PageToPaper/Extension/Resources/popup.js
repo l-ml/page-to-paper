@@ -86,7 +86,7 @@
       throw new MessageShapeError("Messages must not carry secrets.");
     }
   }
-  function optionalText(value, max, label) {
+  function optionalText(value, max, label, code) {
     if (value === void 0 || value === null) return void 0;
     if (typeof value !== "string") {
       throw new MessageShapeError(`${label} must be a string.`);
@@ -94,7 +94,7 @@
     const trimmed = value.trim();
     if (!trimmed) return void 0;
     if (trimmed.length > max) {
-      throw new MessageShapeError(`${label} is too long.`);
+      throw new MessageShapeError(`${label} is too long.`, code);
     }
     return trimmed;
   }
@@ -111,7 +111,7 @@
     }
     const title = value.title.trim();
     if (title.length > limits.title) {
-      throw new MessageShapeError("Article title is too long.");
+      throw new MessageShapeError("Article title is too long.", "titleTooLong");
     }
     if (typeof value.url !== "string" || !value.url.trim()) {
       throw new MessageShapeError("Article URL is missing.");
@@ -137,7 +137,7 @@
     }
     const draft = { title, url: url.toString() };
     const html = optionalText(value.html, limits.html, "Article HTML");
-    const byline = optionalText(value.byline, limits.byline, "Byline");
+    const byline = optionalText(value.byline, limits.byline, "Byline", "bylineTooLong");
     if (html) draft.html = html;
     if (byline) draft.byline = byline;
     return draft;
@@ -198,15 +198,22 @@
       await deps.inject(tab.id);
       return { ok: true, draft: parseArticleDraft(await deps.extract(tab.id)) };
     } catch (error) {
-      if (error instanceof MessageShapeError && isUnsupportedUrl(error.code)) {
+      if (error instanceof MessageShapeError && isUnsupportedPage(error.code)) {
         return { ok: false, reason: "unsupported" };
       }
       return { ok: false, reason: "unread" };
     }
   }
-  var unsupportedUrlCodes = ["urlTooLong", "urlScheme", "urlCredentials", "urlInvalid"];
-  function isUnsupportedUrl(code) {
-    return code !== void 0 && unsupportedUrlCodes.includes(code);
+  var unsupportedPageCodes = [
+    "urlTooLong",
+    "urlScheme",
+    "urlCredentials",
+    "urlInvalid",
+    "titleTooLong",
+    "bylineTooLong"
+  ];
+  function isUnsupportedPage(code) {
+    return code !== void 0 && unsupportedPageCodes.includes(code);
   }
   async function queryPaired(dispatch2) {
     try {
