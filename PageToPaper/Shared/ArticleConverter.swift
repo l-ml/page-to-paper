@@ -281,6 +281,9 @@ private enum XMLText {
             || (value >= 0x10000 && value <= 0x10FFFF)
     }
 
+    /// Decodes the named entities listed below, plus numeric forms. Any other name is left as literal text
+    /// (`&eacute;` becomes the characters `&eacute;`). That is acceptable only while the reader sends
+    /// DOM-serialized HTML, where those characters are already decoded. Revisit this if raw source HTML is captured.
     private static func decodeEntity(_ raw: String, from start: String.Index) -> (scalar: Unicode.Scalar, next: String.Index)? {
         guard start < raw.endIndex else { return nil }
         if raw[start] == "#" {
