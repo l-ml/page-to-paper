@@ -50,6 +50,9 @@ struct UploadReceipt: Sendable, Equatable {
     var replay: Bool
 }
 
+/// Sends one EPUB. Implementations must stop promptly when the task is cancelled.
+/// The timeout cannot return until `send` returns, so a transport that ignores
+/// cancellation holds the result past the popup's wait.
 protocol UploadTransport: Sendable {
     func send(_ request: UploadRequest) async throws -> UploadReceipt
 }
