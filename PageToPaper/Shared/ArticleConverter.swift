@@ -396,6 +396,18 @@ private struct Sanitizer {
     }
 
     private mutating func consumeTag() -> Bool {
+        let tagStart = index
+        guard consumeTagBody() else {
+            // The construct never closed, so the rest of the input belongs to it.
+            // Keep markup already written and escape only this tail.
+            output += XMLText.escape(String(text[tagStart...]))
+            index = text.endIndex
+            return true
+        }
+        return true
+    }
+
+    private mutating func consumeTagBody() -> Bool {
         if text[index...].hasPrefix("<!--") {
             guard let end = text[index...].range(of: "-->") else { return false }
             index = end.upperBound
