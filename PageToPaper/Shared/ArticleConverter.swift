@@ -437,10 +437,7 @@ private struct Sanitizer {
             output += "<\(name) />"
             return true
         }
-        if tag.selfClosing {
-            output += "<\(name)></\(name)>"
-            return true
-        }
+        // HTML ignores a trailing slash on a non-void element, so `<p/>` stays open.
         output += "<\(name)\(anchorAttribute(name, tag.attributes))>"
         stack.append(name)
         return true
