@@ -287,7 +287,12 @@ private enum XMLText {
             return decodeNumeric(raw, from: raw.index(after: start))
         }
         let names: [String: Unicode.Scalar] = [
-            "amp": "&", "lt": "<", "gt": ">", "quot": "\"", "apos": "'", "nbsp": "\u{00A0}",
+            "amp": "&", "lt": "<", "gt": ">", "quot": "\"", "apos": "'",
+            "nbsp": "\u{00A0}", "copy": "\u{00A9}", "reg": "\u{00AE}",
+            "laquo": "\u{00AB}", "raquo": "\u{00BB}", "middot": "\u{00B7}",
+            "lsquo": "\u{2018}", "rsquo": "\u{2019}", "ldquo": "\u{201C}", "rdquo": "\u{201D}",
+            "ndash": "\u{2013}", "mdash": "\u{2014}", "bull": "\u{2022}", "hellip": "\u{2026}",
+            "trade": "\u{2122}",
         ]
         var index = start
         var name = ""
