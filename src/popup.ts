@@ -1,5 +1,6 @@
 import { assignPairingLink, pairingDeepLink, type PairingDeepLinkReason } from "./appLink";
 import { clearStoredPairing, queryPaired, readActivePage, uploadDraft } from "./capture";
+import { newIdempotencyKey } from "./messaging";
 import { requestNative } from "./nativeCall";
 import { element, renderPopup } from "./popupRender";
 import { createPopupSession } from "./popupSession";
@@ -111,13 +112,15 @@ function runAction(action: PopupAction | undefined, reason: PairingDeepLinkReaso
     return;
   }
   if (action === "send") {
-    session.commit({ type: "send" });
+    session.commit({ type: "send", idempotencyKey: newIdempotencyKey() });
     if (session.phase().name !== "sending") return;
     void performUpload();
     return;
   }
   if (action === "retry-send") {
-    session.commit({ type: "retry" });
+    const phase = session.phase();
+    const carried = phase.name === "error" ? phase.idempotencyKey : undefined;
+    session.commit({ type: "retry", idempotencyKey: carried ?? newIdempotencyKey() });
     if (session.phase().name === "reading") {
       void loadPage();
       return;

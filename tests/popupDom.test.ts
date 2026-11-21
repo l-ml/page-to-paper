@@ -112,7 +112,7 @@ describe("popup spinner", () => {
   it("shows the spinner only while sending", () => {
     const sending = reducePopup(
       { name: "ready", page, paired: true, offline: false, busy: false },
-      { type: "send" },
+      { type: "send", idempotencyKey: "11111111-1111-4111-8111-111111111111" },
     );
     renderPopup(document, sending);
     expect(primary().getAttribute("aria-busy")).toBe("true");
@@ -166,7 +166,7 @@ describe("busy watchdog", () => {
     });
     session.commit({ type: "open" });
     session.commit({ type: "pageLoaded", page, paired: true, offline: false });
-    session.commit({ type: "send" });
+    session.commit({ type: "send", idempotencyKey: "11111111-1111-4111-8111-111111111111" });
     vi.advanceTimersByTime(nativeCallTimeoutMs);
     expect(session.phase().name).toBe("sending");
     vi.advanceTimersByTime(uploadRoundTripMs - nativeCallTimeoutMs);

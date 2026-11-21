@@ -2,7 +2,6 @@ import type { PairingDeepLinkReason } from "./appLink";
 import {
   isRecord,
   messageTypes,
-  newIdempotencyKey,
   uploadErrorKinds,
   type ArticleDraft,
   type UploadErrorKind,
@@ -48,13 +47,13 @@ export type PopupEvent =
   | { type: "pageLoaded"; page: PagePreview; paired: boolean; offline: boolean }
   | { type: "pageUnread" }
   | { type: "pageUnsupported" }
-  | { type: "send" }
+  | { type: "send"; idempotencyKey: string }
   | { type: "uploadSucceeded" }
   | { type: "uploadMocked" }
   | { type: "uploadUnavailable" }
   | { type: "uploadFailed"; kind: ErrorKind }
   | { type: "nativeUnreachable"; page?: PagePreview }
-  | { type: "retry" }
+  | { type: "retry"; idempotencyKey?: string }
   | { type: "acknowledge"; offline?: boolean }
   | { type: "done" }
   | { type: "connectivity"; offline: boolean }
@@ -113,7 +112,7 @@ export function reducePopup(state: PopupPhase, event: PopupEvent): PopupPhase {
       return { name: "error", kind: "unsupportedPage", busy: false };
     case "send":
       if (state.name !== "ready" || !state.paired || state.offline) return state;
-      return { name: "sending", page: state.page, idempotencyKey: newIdempotencyKey(), busy: true };
+      return { name: "sending", page: state.page, idempotencyKey: event.idempotencyKey, busy: true };
     case "uploadSucceeded":
       if (state.name !== "sending") return state;
       return { name: "success", page: state.page, busy: false };
@@ -155,12 +154,9 @@ export function reducePopup(state: PopupPhase, event: PopupEvent): PopupPhase {
         return { name: "reading", busy: true };
       }
       if (state.kind === "rateLimit" || state.kind === "unsupportedPage") return state;
-      return {
-        name: "sending",
-        page: state.page,
-        idempotencyKey: state.idempotencyKey ?? newIdempotencyKey(),
-        busy: true,
-      };
+      const idempotencyKey = state.idempotencyKey ?? event.idempotencyKey;
+      if (!idempotencyKey) return state;
+      return { name: "sending", page: state.page, idempotencyKey, busy: true };
     case "acknowledge": {
       const offline = event.offline === true;
       if (state.name === "unavailable") {

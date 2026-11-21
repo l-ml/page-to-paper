@@ -331,7 +331,7 @@
         return { name: "error", kind: "unsupportedPage", busy: false };
       case "send":
         if (state.name !== "ready" || !state.paired || state.offline) return state;
-        return { name: "sending", page: state.page, idempotencyKey: newIdempotencyKey(), busy: true };
+        return { name: "sending", page: state.page, idempotencyKey: event.idempotencyKey, busy: true };
       case "uploadSucceeded":
         if (state.name !== "sending") return state;
         return { name: "success", page: state.page, busy: false };
@@ -373,12 +373,9 @@
           return { name: "reading", busy: true };
         }
         if (state.kind === "rateLimit" || state.kind === "unsupportedPage") return state;
-        return {
-          name: "sending",
-          page: state.page,
-          idempotencyKey: state.idempotencyKey ?? newIdempotencyKey(),
-          busy: true
-        };
+        const idempotencyKey = state.idempotencyKey ?? event.idempotencyKey;
+        if (!idempotencyKey) return state;
+        return { name: "sending", page: state.page, idempotencyKey, busy: true };
       case "acknowledge": {
         const offline = event.offline === true;
         if (state.name === "unavailable") {
@@ -797,13 +794,15 @@
       return;
     }
     if (action === "send") {
-      session.commit({ type: "send" });
+      session.commit({ type: "send", idempotencyKey: newIdempotencyKey() });
       if (session.phase().name !== "sending") return;
       void performUpload();
       return;
     }
     if (action === "retry-send") {
-      session.commit({ type: "retry" });
+      const phase = session.phase();
+      const carried = phase.name === "error" ? phase.idempotencyKey : void 0;
+      session.commit({ type: "retry", idempotencyKey: carried ?? newIdempotencyKey() });
       if (session.phase().name === "reading") {
         void loadPage();
         return;
