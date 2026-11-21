@@ -364,7 +364,7 @@
           idempotencyKey: state.name === "sending" ? state.idempotencyKey : void 0,
           busy: false
         };
-      case "retry":
+      case "retry": {
         if (state.name !== "error") return state;
         if (state.kind === "appUnreachable" && !state.afterSend) {
           return { name: "reading", busy: true };
@@ -376,6 +376,7 @@
         const idempotencyKey = state.idempotencyKey ?? event.idempotencyKey;
         if (!idempotencyKey) return state;
         return { name: "sending", page: state.page, idempotencyKey, busy: true };
+      }
       case "acknowledge": {
         const offline = event.offline === true;
         if (state.name === "unavailable") {
