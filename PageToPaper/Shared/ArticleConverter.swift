@@ -396,8 +396,13 @@ private struct Sanitizer {
             index = end.upperBound
             return true
         }
+        if text[index...].hasPrefix("<![CDATA[") {
+            return consumeCDATA()
+        }
         if text[index...].hasPrefix("<![") {
-            return false
+            guard let end = text[index...].firstIndex(of: ">") else { return false }
+            index = text.index(after: end)
+            return true
         }
         if text[index...].hasPrefix("<?") || text[index...].hasPrefix("<!") {
             guard let end = text[index...].firstIndex(of: ">") else { return false }
@@ -527,31 +532,54 @@ private struct Sanitizer {
                 index = text.index(after: index)
                 return Tag(name: name, attributes: attributes, closing: closing, selfClosing: selfClosing)
             }
-            guard let attribute = readAttribute() else { return nil }
-            attributes[attribute.name] = attribute.value
+            guard consumeAttribute(into: &attributes) else { return nil }
         }
         return nil
     }
 
-    private struct Attribute {
-        var name: String
-        var value: String
-    }
-
-    private mutating func readAttribute() -> Attribute? {
+    /// False only when the attribute is unterminated. A name this parser cannot read is dropped.
+    private mutating func consumeAttribute(into attributes: inout [String: String]) -> Bool {
+        guard index < text.endIndex else { return false }
+        if !isNameStart(text[index]) {
+            return skipOddAttribute()
+        }
         let nameStart = index
-        guard index < text.endIndex, isNameStart(text[index]) else { return nil }
         index = text.index(after: index)
         while index < text.endIndex, isAttributeChar(text[index]) {
             index = text.index(after: index)
         }
         let name = text[nameStart..<index].lowercased()
-        guard !name.isEmpty else { return nil }
+        guard !name.isEmpty else { return skipOddAttribute() }
         skipWhitespace()
-        guard index < text.endIndex, text[index] == "=" else {
-            return Attribute(name: name, value: "")
+        guard index < text.endIndex else { return false }
+        if text[index] != "=" {
+            attributes[name] = ""
+            return true
         }
         index = text.index(after: index)
+        guard let value = readAttributeValue() else { return false }
+        attributes[name] = value
+        return true
+    }
+
+    /// Drops `_ngcontent`, `@click`, `:class`, and similar. A missing closing quote still fails the parse.
+    private mutating func skipOddAttribute() -> Bool {
+        while index < text.endIndex {
+            let character = text[index]
+            if character == "=" || character.isWhitespace || character == "/" || character == ">" {
+                break
+            }
+            index = text.index(after: index)
+        }
+        guard index < text.endIndex else { return false }
+        if text[index] != "=" {
+            return true
+        }
+        index = text.index(after: index)
+        return readAttributeValue() != nil
+    }
+
+    private mutating func readAttributeValue() -> String? {
         skipWhitespace()
         guard index < text.endIndex else { return nil }
         let quote = text[index]
@@ -564,13 +592,23 @@ private struct Sanitizer {
             guard index < text.endIndex else { return nil }
             let value = String(text[valueStart..<index])
             index = text.index(after: index)
-            return Attribute(name: name, value: value)
+            return value
         }
         let valueStart = index
         while index < text.endIndex, !text[index].isWhitespace, text[index] != ">" {
             index = text.index(after: index)
         }
-        return Attribute(name: name, value: String(text[valueStart..<index]))
+        return String(text[valueStart..<index])
+    }
+
+    private mutating func consumeCDATA() -> Bool {
+        let marker = "<![CDATA["
+        guard text[index...].hasPrefix(marker) else { return false }
+        index = text.index(index, offsetBy: marker.count)
+        guard let end = text[index...].range(of: "]]>") else { return false }
+        output += XMLText.escape(String(text[index..<end.lowerBound]))
+        index = end.upperBound
+        return true
     }
 
     private mutating func skipWhitespace() {
