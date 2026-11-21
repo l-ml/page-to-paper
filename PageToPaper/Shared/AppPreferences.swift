@@ -21,6 +21,7 @@ enum AppPreferences {
     static let appGroupID = "group.com.example.pagetopaper"
     private static let onboardingKey = "hasCompletedOnboarding"
     private static let log = Logger(subsystem: "com.example.pagetopaper", category: "preferences")
+    private static let suiteLogLock = NSLock()
     private static var didReportMissingSuite = false
 
     /// False when the suite cannot be opened. This build never falls back to UserDefaults.standard.
@@ -48,8 +49,11 @@ enum AppPreferences {
         if let defaults = UserDefaults(suiteName: appGroupID) {
             return defaults
         }
-        if !didReportMissingSuite {
-            didReportMissingSuite = true
+        suiteLogLock.lock()
+        let alreadyLogged = didReportMissingSuite
+        didReportMissingSuite = true
+        suiteLogLock.unlock()
+        if !alreadyLogged {
             log.error("App Group \(appGroupID, privacy: .public) is unavailable. Refusing UserDefaults.standard.")
         }
         return nil

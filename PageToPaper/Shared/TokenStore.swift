@@ -14,6 +14,7 @@ struct TokenStore {
     static let service = "com.example.pagetopaper.device-token"
     static let account = "remarkable-device-token"
     private static let log = Logger(subsystem: "com.example.pagetopaper", category: "keychain")
+    private static let logLock = NSLock()
 
     private let accessGroup: String?
     private static var didLogSimulatorDefault = false
@@ -106,8 +107,11 @@ struct TokenStore {
     }
 
     private static func logSimulatorDefaultOnce() {
-        if didLogSimulatorDefault { return }
+        logLock.lock()
+        let alreadyLogged = didLogSimulatorDefault
         didLogSimulatorDefault = true
+        logLock.unlock()
+        if alreadyLogged { return }
         log.error("Shared keychain access group is unresolved. Simulator Debug is using the default keychain group. Release and device builds refuse this.")
     }
 }
