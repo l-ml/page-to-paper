@@ -621,6 +621,14 @@
     return "unknown";
   }
 
+  // src/popupAttempt.ts
+  function nextAttempt(current) {
+    return current + 1;
+  }
+  function isCurrentAttempt(started, current) {
+    return started === current;
+  }
+
   // src/popupRender.ts
   function element(doc, selector, ctor) {
     const node = doc.querySelector(selector);
@@ -712,6 +720,7 @@
     render: (phase) => renderPopup(document, phase)
   });
   var dismissTimer;
+  var attempt = 0;
   function dispatch(message) {
     return requestNative(message, (body) => browser.runtime.sendMessage(body), nativeTimeoutMs(message));
   }
@@ -727,6 +736,8 @@
   }
   async function loadPage() {
     clearTimeout(dismissTimer);
+    const started = nextAttempt(attempt);
+    attempt = started;
     session.commit({ type: "open" });
     const read = await readActivePage({
       queryActiveTab: async () => {
@@ -738,14 +749,14 @@
       },
       extract: (tabId) => browser.tabs.sendMessage(tabId, { type: "extractArticle" })
     });
-    if (session.phase().name !== "reading") return;
+    if (!isCurrentAttempt(started, attempt) || session.phase().name !== "reading") return;
     if (!read.ok) {
       session.commit(read.reason === "unsupported" ? { type: "pageUnsupported" } : { type: "pageUnread" });
       return;
     }
     const page = previewFromDraft(read.draft);
     const pairing = await queryPaired(dispatch);
-    if (session.phase().name !== "reading") return;
+    if (!isCurrentAttempt(started, attempt) || session.phase().name !== "reading") return;
     if (pairing.status === "unreachable") {
       session.commit({ type: "nativeUnreachable", page });
       return;
@@ -760,6 +771,8 @@
   async function performUpload() {
     const current = session.phase();
     if (current.name !== "sending") return;
+    const started = nextAttempt(attempt);
+    attempt = started;
     const page = current.page;
     const idempotencyKey = current.idempotencyKey;
     console.info("[page-to-paper] popup send started");
@@ -769,7 +782,7 @@
     } catch {
       event = eventForUploadResult({ ok: false, message: "The Page to Paper app did not answer." });
     }
-    if (session.phase().name !== "sending") return;
+    if (!isCurrentAttempt(started, attempt) || session.phase().name !== "sending") return;
     session.commit(event);
     const updated = session.phase();
     console.info(`[page-to-paper] popup UI update ${updated.name}`);

@@ -2,6 +2,7 @@ import { assignPairingLink, pairingDeepLink, type PairingDeepLinkReason } from "
 import { clearStoredPairing, queryPaired, readActivePage, uploadDraft } from "./capture";
 import { newIdempotencyKey } from "./messaging";
 import { requestNative } from "./nativeCall";
+import { isCurrentAttempt, nextAttempt } from "./popupAttempt";
 import { element, renderPopup } from "./popupRender";
 import { createPopupSession } from "./popupSession";
 import {
@@ -20,6 +21,7 @@ const session = createPopupSession({
 });
 
 let dismissTimer: ReturnType<typeof setTimeout> | undefined;
+let attempt = 0;
 
 function dispatch(message: unknown): Promise<unknown> {
   return requestNative(message, (body) => browser.runtime.sendMessage(body), nativeTimeoutMs(message));
@@ -40,6 +42,8 @@ async function clearPairingThenOpen(reason: PairingDeepLinkReason): Promise<void
 
 async function loadPage(): Promise<void> {
   clearTimeout(dismissTimer);
+  const started = nextAttempt(attempt);
+  attempt = started;
   session.commit({ type: "open" });
   const read = await readActivePage({
     queryActiveTab: async () => {
@@ -51,15 +55,15 @@ async function loadPage(): Promise<void> {
     },
     extract: (tabId) => browser.tabs.sendMessage(tabId, { type: "extractArticle" }),
   });
-  // A watchdog may already have left "reading". A late result must not set busy again.
-  if (session.phase().name !== "reading") return;
+  // A newer read, or a watchdog, may already have left this attempt.
+  if (!isCurrentAttempt(started, attempt) || session.phase().name !== "reading") return;
   if (!read.ok) {
     session.commit(read.reason === "unsupported" ? { type: "pageUnsupported" } : { type: "pageUnread" });
     return;
   }
   const page = previewFromDraft(read.draft);
   const pairing = await queryPaired(dispatch);
-  if (session.phase().name !== "reading") return;
+  if (!isCurrentAttempt(started, attempt) || session.phase().name !== "reading") return;
   if (pairing.status === "unreachable") {
     session.commit({ type: "nativeUnreachable", page });
     return;
@@ -75,6 +79,8 @@ async function loadPage(): Promise<void> {
 async function performUpload(): Promise<void> {
   const current = session.phase();
   if (current.name !== "sending") return;
+  const started = nextAttempt(attempt);
+  attempt = started;
   const page = current.page;
   const idempotencyKey = current.idempotencyKey;
   console.info("[page-to-paper] popup send started");
@@ -84,7 +90,7 @@ async function performUpload(): Promise<void> {
   } catch {
     event = eventForUploadResult({ ok: false, message: "The Page to Paper app did not answer." });
   }
-  if (session.phase().name !== "sending") return;
+  if (!isCurrentAttempt(started, attempt) || session.phase().name !== "sending") return;
   session.commit(event);
   const updated = session.phase();
   console.info(`[page-to-paper] popup UI update ${updated.name}`);
