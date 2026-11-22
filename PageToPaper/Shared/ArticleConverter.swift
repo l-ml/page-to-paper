@@ -371,9 +371,9 @@ private struct Sanitizer {
     ]
     private static let voids: Set<String> = ["br", "hr"]
     private static let dropWithContent: Set<String> = [
-        "script", "style", "iframe", "object", "embed", "svg", "math", "noscript",
+        "script", "style", "iframe", "object", "svg", "math", "noscript",
         "template", "head", "canvas", "video", "audio", "textarea", "select",
-        "applet", "frameset", "frame", "noframes", "noembed", "title",
+        "applet", "frameset", "noframes", "noembed", "title",
     ]
 
     mutating func parse() -> String? {
