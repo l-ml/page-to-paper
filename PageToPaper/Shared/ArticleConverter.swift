@@ -27,15 +27,15 @@ struct ArticleConverter {
         let html = draft.html?.trimmingCharacters(in: .whitespacesAndNewlines)
         let identifier = "urn:uuid:\(UUID().uuidString.lowercased())"
         let modified = Self.modifiedTimestamp()
-        let escapedTitle = XMLText.escape(title)
+        let escapedTitle = XMLText.escapePlain(title)
         let files = [
             StoredZip.Entry(name: "mimetype", data: Data("application/epub+zip".utf8)),
             StoredZip.Entry(name: "META-INF/container.xml", data: Data(Self.containerXML.utf8)),
-            StoredZip.Entry(name: "OEBPS/content.opf", data: Data(Self.packageXML(title: escapedTitle, identifier: XMLText.escape(identifier), modified: modified).utf8)),
+            StoredZip.Entry(name: "OEBPS/content.opf", data: Data(Self.packageXML(title: escapedTitle, identifier: XMLText.escapePlain(identifier), modified: modified).utf8)),
             StoredZip.Entry(name: "OEBPS/nav.xhtml", data: Data(Self.navigationXML(title: escapedTitle).utf8)),
             StoredZip.Entry(
                 name: "OEBPS/chapter.xhtml",
-                data: Data(Self.chapterXML(title: escapedTitle, url: XMLText.escape(url), byline: byline.map(XMLText.escape), html: html).utf8)
+                data: Data(Self.chapterXML(title: escapedTitle, url: XMLText.escapePlain(url), byline: byline.map(XMLText.escapePlain), html: html).utf8)
             ),
         ]
         guard let archive = StoredZip.archive(files) else {
@@ -240,20 +240,35 @@ private extension Data {
 }
 
 private enum XMLText {
-    static func escape(_ raw: String) -> String {
+    /// Escapes XML markup characters and does not decode HTML entities.
+    /// Use this for title, URL, byline, CDATA, and an unfinished tag tail.
+    static func escapePlain(_ raw: String) -> String {
         var result = ""
         result.reserveCapacity(raw.count)
+        for character in raw {
+            for scalar in character.unicodeScalars {
+                appendEscaped(scalar, to: &result)
+            }
+        }
+        return result
+    }
+
+    /// Decodes HTML entities, then escapes the result for an XHTML text node.
+    static func escapeHTML(_ raw: String) -> String {
+        escapePlain(decodeHTML(raw))
+    }
+
+    static func decodeHTML(_ raw: String) -> String {
+        var result = ""
         var index = raw.startIndex
         while index < raw.endIndex {
             let character = raw[index]
             if character == "&", let decoded = decodeEntity(raw, from: raw.index(after: index)) {
-                appendEscaped(decoded.scalar, to: &result)
+                result.unicodeScalars.append(decoded.scalar)
                 index = decoded.next
                 continue
             }
-            for scalar in character.unicodeScalars {
-                appendEscaped(scalar, to: &result)
-            }
+            result.append(character)
             index = raw.index(after: index)
         }
         return result
@@ -347,7 +362,7 @@ private enum XHTMLFragment {
         if let safe = sanitizer.parse() {
             return safe
         }
-        return "<p>\(XMLText.escape(html))</p>"
+        return "<p>\(XMLText.escapePlain(html))</p>"
     }
 }
 
@@ -395,7 +410,7 @@ private struct Sanitizer {
         while index < text.endIndex, text[index] != "<" {
             index = text.index(after: index)
         }
-        output += XMLText.escape(String(text[start..<index]))
+        output += XMLText.escapeHTML(String(text[start..<index]))
     }
 
     private mutating func consumeTag() -> Bool {
@@ -403,7 +418,7 @@ private struct Sanitizer {
         guard consumeTagBody() else {
             // The construct never closed, so the rest of the input belongs to it.
             // Keep markup already written and escape only this tail.
-            output += XMLText.escape(String(text[tagStart...]))
+            output += XMLText.escapePlain(String(text[tagStart...]))
             index = text.endIndex
             return true
         }
@@ -443,7 +458,7 @@ private struct Sanitizer {
         }
         if name == "img" {
             if let alt = tag.attributes["alt"], !alt.isEmpty {
-                output += XMLText.escape(alt)
+                output += XMLText.escapeHTML(alt)
             }
             return true
         }
@@ -459,8 +474,9 @@ private struct Sanitizer {
     }
 
     private func anchorAttribute(_ name: String, _ attributes: [String: String]) -> String {
-        guard name == "a", let href = safeHref(attributes["href"]) else { return "" }
-        return " href=\"\(XMLText.escape(href))\""
+        guard name == "a" else { return "" }
+        guard let href = safeHref(XMLText.decodeHTML(attributes["href"] ?? "")) else { return "" }
+        return " href=\"\(XMLText.escapePlain(href))\""
     }
 
     private func safeHref(_ raw: String?) -> String? {
@@ -623,7 +639,7 @@ private struct Sanitizer {
         guard text[index...].hasPrefix(marker) else { return false }
         index = text.index(index, offsetBy: marker.count)
         guard let end = text[index...].range(of: "]]>") else { return false }
-        output += XMLText.escape(String(text[index..<end.lowerBound]))
+        output += XMLText.escapePlain(String(text[index..<end.lowerBound]))
         index = end.upperBound
         return true
     }
