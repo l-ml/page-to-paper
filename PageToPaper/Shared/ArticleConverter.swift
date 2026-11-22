@@ -639,7 +639,7 @@ private struct Sanitizer {
     }
 
     private func isNameChar(_ character: Character) -> Bool {
-        character.isASCII && (character.isLetter || character.isNumber)
+        character.isASCII && (character.isLetter || character.isNumber || character == "-")
     }
 
     private func isAttributeChar(_ character: Character) -> Bool {
