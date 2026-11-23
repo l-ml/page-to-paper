@@ -35,6 +35,7 @@ PageToPaper/Extension/       Safari web extension and SafariWebExtensionHandler
 PageToPaper/Extension/Resources/   manifest, popup, and esbuild output
 PageToPaper/Shared/          Swift compiled into both targets
 PageToPaper.xcodeproj        Checked-in Xcode project
+docs/                        Manual QA checklist and TestFlight distribution notes
 ```
 
 Shared Swift types are `AppPreferences`, `ArticleDraft`, `ArticleConverter`, `ExtensionMessageRouter`, `PairingCode`, `RemarkableAuth`, `RemarkableCloudClient`, `TokenStore`, and `UploadResult`. `TokenStore` keeps the pairing stand-in in the Keychain. The mock upload does not read it. `ArticleConverter.makeEpub` builds an EPUB 3 archive. `RemarkableCloudClient` sends it through `UploadTransport`. The default transport is `MockUploadTransport`.
@@ -88,9 +89,14 @@ xcodebuild \
   build
 ```
 
-**Xcode build: UNVERIFIED.** This scaffold was prepared on Linux, where `xcodebuild` and Xcode are not installed. The project structure, Info.plists, entitlements, and `manifest.json` were checked with `node scripts/validate-xcodeproj.mjs` and `python3 scripts/validate_plists.py`. That is not a compile. Do not treat the app as building until the command above has been run on a Mac.
+**Xcode Simulator build verified** on macOS (`Xcode 27.2`) for both `Debug` and `Release` configurations (`CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO`). Physical device signing and real reMarkable Cloud tests still require setting your team and replacing placeholders per [docs/TESTFLIGHT.md](docs/TESTFLIGHT.md).
 
 The checked-in project is the file Xcode opens. After adding or removing a Swift or resource file, regenerate it with `node scripts/generate-xcodeproj.mjs` and run `node scripts/validate-xcodeproj.mjs`.
+
+## QA & Distribution
+
+- [Manual QA checklist](docs/QA_CHECKLIST.md) for testing on real iOS Safari and reMarkable hardware
+- [TestFlight & distribution notes](docs/TESTFLIGHT.md) for identifier replacement, archiving, and beta disclosure copy
 
 ## Message contract
 
