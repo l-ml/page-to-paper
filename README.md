@@ -18,7 +18,7 @@ The send path runs against a mock. It does not open a connection.
 
 A valid paired send gets `ok: true`, `implemented: false`, and `mock: true`. The document id starts with `mock-`. A bad message gets `ok: false`. An unpaired send is refused with `notPaired`. Pairing and page reads give up after 10 seconds. A send waits 25 seconds so the app’s 20 second transport timeout can come back as `errorKind: timeout`.
 
-The reader still sends the title, host, and byline. The EPUB is that title, the byline, and the source URL. If a draft also includes HTML, that HTML is turned into XHTML with scripts, styles, frames, and external resources removed.
+The reader extracts the article body with `@mozilla/readability` from a cloned DOM alongside the title, host, and byline, falling back to title, byline, and source URL if no article body is found. Extracted HTML resolves relative links, drops non-article media and scripts, keeps image `alt` text, deduplicates a leading title heading, and is turned into EPUB 3 XHTML with `<dc:creator>` metadata and an `<hr />` separator.
 
 The mock remembers idempotency keys in memory for the life of the extension process. Safari can kill that process, so a replay after that is best-effort. Retry of the same failed or timed-out send reuses the key. If that key was already recorded, the mock returns the original document id instead of creating another. A new Send, including one after success, gets a new key.
 
@@ -29,7 +29,7 @@ JavaScript never holds tokens. Preferences go in an App Group `UserDefaults` sui
 ## Layout
 
 ```
-src/                         TypeScript: popup, content script, background, message checks
+src/                         TypeScript: popup, content script, Readability extract, background, message checks
 PageToPaper/App/             SwiftUI app: Onboarding, Pairing, Settings
 PageToPaper/Extension/       Safari web extension and SafariWebExtensionHandler
 PageToPaper/Extension/Resources/   manifest, popup, and esbuild output
@@ -114,6 +114,10 @@ Permissions:
 - `activeTab`: read only the tab that was active when the popup opened.
 - `scripting`: inject `content.js` into that tab. There is no `content_scripts` entry and no host permission.
 - `nativeMessaging`: the service worker calls the containing app.
+
+## Dependencies & third-party notices
+
+Extension scripts bundle [`@mozilla/readability`](https://github.com/mozilla/readability) (pinned to `0.6.0`, Apache License 2.0) into `PageToPaper/Extension/Resources/content.js` to extract article content locally on-device without maintaining custom DOM heuristics. No other third-party runtime dependencies are used on the JavaScript or Swift side.
 
 ## License
 

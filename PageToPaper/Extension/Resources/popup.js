@@ -147,7 +147,7 @@
       throw new MessageShapeError("Article URL is too long.", "urlTooLong");
     }
     const draft = { title, url: bridgedURL };
-    const html = optionalText(value.html, limits.html, "Article HTML");
+    const html = optionalText(value.html, limits.html, "Article HTML", "htmlTooLong");
     const byline = optionalText(value.byline, limits.byline, "Byline", "bylineTooLong");
     if (html) draft.html = html;
     if (byline) draft.byline = byline;
@@ -266,7 +266,8 @@
     "urlCredentials",
     "urlInvalid",
     "titleTooLong",
-    "bylineTooLong"
+    "bylineTooLong",
+    "htmlTooLong"
   ];
   function isUnsupportedPage(code) {
     return code !== void 0 && unsupportedPageCodes.includes(code);

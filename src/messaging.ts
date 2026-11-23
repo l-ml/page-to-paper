@@ -98,7 +98,8 @@ export type MessageShapeCode =
   | "urlCredentials"
   | "urlInvalid"
   | "titleTooLong"
-  | "bylineTooLong";
+  | "bylineTooLong"
+  | "htmlTooLong";
 
 export class MessageShapeError extends Error {
   readonly code?: MessageShapeCode;
@@ -205,7 +206,7 @@ export function parseArticleDraft(value: unknown): ArticleDraft {
     throw new MessageShapeError("Article URL is too long.", "urlTooLong");
   }
   const draft: ArticleDraft = { title, url: bridgedURL };
-  const html = optionalText(value.html, limits.html, "Article HTML");
+  const html = optionalText(value.html, limits.html, "Article HTML", "htmlTooLong");
   const byline = optionalText(value.byline, limits.byline, "Byline", "bylineTooLong");
   if (html) draft.html = html;
   if (byline) draft.byline = byline;

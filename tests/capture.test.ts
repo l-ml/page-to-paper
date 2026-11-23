@@ -72,6 +72,17 @@ describe("readActivePage", () => {
     });
     expect(scheme).toEqual({ ok: false, reason: "unsupported" });
     expect(withSecret).toEqual({ ok: false, reason: "unsupported" });
+    const longHtml = await readActivePage({
+      queryActiveTab: async () => ({ id: 3 }),
+      inject: async () => {},
+      extract: async () => ({
+        type: "articleDraft",
+        title: "Dispatch",
+        url: "https://news.example/a",
+        html: "h".repeat(limits.html + 1),
+      }),
+    });
+    expect(longHtml).toEqual({ ok: false, reason: "unsupported" });
   });
 });
 

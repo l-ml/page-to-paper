@@ -69,7 +69,7 @@ describe("parseArticleDraft", () => {
     );
     expect(() =>
       parseArticleDraft({ title: "Note", url: "https://example.com", html: "h".repeat(limits.html + 1) }),
-    ).toThrow(/too long/);
+    ).toThrow(expect.objectContaining({ code: "htmlTooLong" }));
   });
 
   it("rejects secret keys anywhere in the object", () => {

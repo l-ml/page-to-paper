@@ -13,6 +13,7 @@ describe("extension sources", () => {
     const popup = read("src/popup.ts");
     const background = read("src/background.ts");
     const content = read("src/content.ts");
+    const articleExtract = read("src/articleExtract.ts");
     const messaging = read("src/messaging.ts");
 
     expect(read("src/nativeCall.ts")).toContain("nativeCallTimeoutMs");
@@ -29,9 +30,10 @@ describe("extension sources", () => {
     expect(popup).not.toContain("browser.storage");
     expect(background).toContain("sendNativeMessage");
     expect(content).not.toContain("sendNativeMessage");
+    expect(articleExtract).not.toContain("sendNativeMessage");
     expect(messaging).toContain('containingAppNativeId = "application"');
 
-    for (const source of [popup, background, content, messaging]) {
+    for (const source of [popup, background, content, articleExtract, messaging]) {
       expect(source).not.toContain("my.remarkable.com");
       expect(source).not.toContain("webapp-prod");
     }
@@ -99,6 +101,11 @@ describe("checked-in project files", () => {
     expect(popupJs).toContain("uploadArticle");
     expect(popupJs).toContain("pagetopaper://pair");
     expect(popupJs).not.toContain("NSExtensionContext");
+    const contentJs = read("PageToPaper/Extension/Resources/content.js");
+    expect(contentJs).toContain("@mozilla/readability");
+    expect(contentJs).toContain("Apache License, Version 2.0");
+    expect(contentJs).not.toContain("my.remarkable.com");
+    expect(contentJs).not.toContain("webapp-prod");
   });
 
   it("builds the same extension scripts that are committed", () => {

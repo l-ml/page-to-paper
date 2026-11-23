@@ -1,3 +1,4 @@
+import { extractReadableArticle } from "./articleExtract";
 import { isExtractRequest, limits } from "./messaging";
 
 function readByline(): string | undefined {
@@ -40,18 +41,33 @@ function clip(value: string, max: number): string {
 }
 
 /** Title and byline are clipped to the shared limits. The URL is left intact so an over-long one can be rejected as unsupported. */
-export function articleFields(title: string, url: string, byline?: string): { title: string; url: string; byline?: string } {
-  const fields: { title: string; url: string; byline?: string } = {
+export function articleFields(
+  title: string,
+  url: string,
+  byline?: string,
+  html?: string,
+): { title: string; url: string; byline?: string; html?: string } {
+  const fields: { title: string; url: string; byline?: string; html?: string } = {
     title: clip(title, limits.title) || "Untitled",
     url,
   };
   const clippedByline = byline ? clip(byline, limits.byline) : "";
   if (clippedByline) fields.byline = clippedByline;
+  const trimmedHtml = html?.trim();
+  if (trimmedHtml && trimmedHtml.length <= limits.html) {
+    fields.html = trimmedHtml;
+  }
   return fields;
 }
 
-function extractDraft(): { type: "articleDraft"; title: string; url: string; byline?: string } {
-  const fields = articleFields(document.title, location.href, readByline());
+function extractDraft(): { type: "articleDraft"; title: string; url: string; byline?: string; html?: string } {
+  const extracted = extractReadableArticle(document, location.href);
+  const fields = articleFields(
+    extracted.title || document.title,
+    location.href,
+    extracted.byline || readByline(),
+    extracted.html,
+  );
   return { type: "articleDraft", ...fields };
 }
 
