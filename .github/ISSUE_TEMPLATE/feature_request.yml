@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest an improvement or post-v1 capability for Page to Paper.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Note: v1 is intentionally scoped to an iOS Safari Web Extension sending EPUBs to the default reMarkable Inbox (distributed via TestFlight). Share Sheet, folder picker, and PDF capture are post-v1 items.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What workflow or friction does this address?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the UX or technical behavior you have in mind.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Safari Extension Popup & Capture
+        - EPUB Conversion
+        - Containing App (Onboarding / Pairing / Settings)
+        - Build / CI / Docs
+        - Post-v1 Roadmap
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Links, design notes, or edge cases to consider.

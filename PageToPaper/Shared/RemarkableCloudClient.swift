@@ -60,16 +60,27 @@ protocol UploadTransport: Sendable {
 enum MockTransportError: Error {
     case empty
     case rejected
+    case rateLimited
 }
 
-/// DEBUG-only fault for a manual timeout or failure. Release builds ignore it.
-/// App Group suite `group.com.example.pagetopaper`, key `mockUploadFault`: `slow` or `fail`.
-enum MockUploadFault: Equatable {
+/// DEBUG-only fault for a manual timeout, failure, or rate limit. Release builds ignore it.
+/// App Group suite `group.com.example.pagetopaper`, key `mockUploadFault`: `slow`, `fail`, or `ratelimit`.
+enum MockUploadFault: String, CaseIterable, Equatable {
     case off
     case fail
     case slow
+    case rateLimit = "ratelimit"
 
     static let preferenceKey = "mockUploadFault"
+
+    var label: String {
+        switch self {
+        case .off: return "Off"
+        case .fail: return "Fail"
+        case .slow: return "Slow (timeout)"
+        case .rateLimit: return "Rate limit"
+        }
+    }
 
     static func current() -> MockUploadFault {
         #if DEBUG
@@ -80,12 +91,24 @@ enum MockUploadFault: Equatable {
         switch raw {
         case "fail": return .fail
         case "slow": return .slow
+        case "ratelimit", "rate_limit", "rate-limit": return .rateLimit
         default: return .off
         }
         #else
         return .off
         #endif
     }
+
+    #if DEBUG
+    static func set(_ fault: MockUploadFault) {
+        guard let defaults = UserDefaults(suiteName: AppPreferences.appGroupID) else { return }
+        if fault == .off {
+            defaults.removeObject(forKey: preferenceKey)
+        } else {
+            defaults.set(fault.rawValue, forKey: preferenceKey)
+        }
+    }
+    #endif
 }
 
 /// In-memory stand-in for a cloud upload. There is no network call.
@@ -109,6 +132,8 @@ actor MockUploadTransport: UploadTransport {
         switch MockUploadFault.current() {
         case .fail:
             throw MockTransportError.rejected
+        case .rateLimit:
+            throw MockTransportError.rateLimited
         case .off, .slow:
             break
         }
@@ -145,7 +170,15 @@ struct RemarkableCloudClient {
     func upload(_ draft: ArticleDraft, idempotencyKey: String) async -> UploadResult {
         let epub: Data
         switch converter.makeEpub(from: draft) {
-        case .failure:
+        case .failure(.tooLarge):
+            return UploadResult(
+                ok: false,
+                message: "This page is too large to save as an EPUB.",
+                documentId: nil,
+                implemented: false,
+                errorKind: "unsupportedPage"
+            )
+        case .failure(.unrepresentable):
             return Self.unprepared()
         case .epub(let data):
             epub = data
@@ -160,6 +193,14 @@ struct RemarkableCloudClient {
                 try await transport.send(request)
             }
             return Self.accepted(receipt)
+        } catch MockTransportError.rateLimited {
+            return UploadResult(
+                ok: false,
+                message: "Too many sends. Please wait a moment and try again.",
+                documentId: nil,
+                implemented: false,
+                errorKind: "rateLimit"
+            )
         } catch is UploadTimedOut {
             return UploadResult(
                 ok: false,

@@ -1,0 +1,90 @@
+name: Bug report
+description: Report a problem with the iOS app, Safari extension, article extraction, or EPUB output.
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please make sure you do not include any pairing codes, tokens, or personal Apple Team IDs.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A clear, concise description of the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce the issue?
+      placeholder: |
+        1. Open Safari on iOS and visit...
+        2. Tap Page to Paper in the toolbar
+        3. Tap Send
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual behavior
+      description: What did you expect to happen, and what happened instead?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device & Environment
+      options:
+        - iPhone (Safari Web Extension sheet)
+        - iPad (Safari Web Extension popover)
+        - iOS Simulator
+        - macOS / Node test runner
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: iOS version & app version/build
+      placeholder: "e.g. iOS 18.1, Page to Paper 0.1.0 (1)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Build / Upload mode
+      options:
+        - Debug (MockUploadTransport, fault Off)
+        - Debug (Mock fault Fail / Slow / Rate limit)
+        - Release / TestFlight
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: Affected page URL (if applicable)
+      description: Only include public URLs without private query tokens.
+      placeholder: "https://example.com/article"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or error copy
+      description: Copy popup error text or Console.app logs (`com.example.pagetopaper`).
+      render: text
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Security check
+      options:
+        - label: I confirm no pairing codes, device tokens, or private credentials are included above.
+          required: true

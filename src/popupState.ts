@@ -286,7 +286,9 @@ export function autoDismisses(state: PopupPhase): boolean {
 export function errorKindForUploadFailure(message: string): ErrorKind {
   const text = message.toLowerCase();
   if (text.includes("timed out") || text.includes("timeout")) return "timeout";
-  if (/\btoo many\b/.test(text) || /\brate\b/.test(text)) return "rateLimit";
+  if (/\btoo many\b/.test(text) || /\brate\b/.test(text) || /\b429\b/.test(text) || text.includes("throttl")) {
+    return "rateLimit";
+  }
   if (text.includes("offline") || text.includes("network") || text.includes("connection")) return "network";
   if (text.includes("did not answer") || text.includes("unreadable") || text.includes("empty message")) {
     return "appUnreachable";
@@ -330,7 +332,10 @@ function errorCopy(kind: ErrorKind, page?: PagePreview, afterSend = false): Omit
       openReason: "expired",
       clearPairing: true,
     },
-    rateLimit: view("Too many sends", "Please wait a moment and try again.", "OK", "dismiss"),
+    rateLimit: {
+      ...view("Too many sends", "Please wait a moment and try again.", "OK", "dismiss"),
+      footnote: "Wait a moment before sending another page.",
+    },
     unsupportedPage: view("Can’t send this page", "This page can’t be saved as an EPUB.", "OK", "dismiss"),
     appUnreachable: {
       ...view("Couldn’t reach the app", "Open Page to Paper, then try again.", "Retry", "retry-send"),

@@ -25,7 +25,10 @@ struct RootView: View {
         NavigationView {
             Group {
                 if hasCompletedOnboarding {
-                    HomeView(showPairing: $showPairing, pairingReason: $pairingReason)
+                    HomeView(showPairing: $showPairing, pairingReason: $pairingReason) {
+                        showPairing = false
+                        hasCompletedOnboarding = false
+                    }
                 } else {
                     OnboardingView {
                         AppPreferences.hasCompletedOnboarding = true
@@ -56,15 +59,24 @@ struct RootView: View {
 struct HomeView: View {
     @Binding var showPairing: Bool
     @Binding var pairingReason: PairingReason?
+    var onResetOnboarding: () -> Void = {}
+
+    @Environment(\.scenePhase) private var scenePhase
     @State private var didOfferPairing = false
+    @State private var paired = false
 
     var body: some View {
         List {
             Section {
                 NavigationLink(destination: PairingView(reason: $pairingReason), isActive: $showPairing) {
-                    Text("Pairing")
+                    HStack {
+                        Text("Pairing")
+                        Spacer()
+                        Text(paired ? "Connected" : "Not paired")
+                            .foregroundColor(paired ? .green : .secondary)
+                    }
                 }
-                NavigationLink(destination: SettingsView()) {
+                NavigationLink(destination: SettingsView(onResetOnboarding: onResetOnboarding)) {
                     Text("Settings")
                 }
             }
@@ -77,10 +89,21 @@ struct HomeView: View {
         .listStyle(InsetGroupedListStyle())
         .navigationTitle("Page to Paper")
         .onAppear {
+            paired = RemarkableAuth().isPaired()
             guard !didOfferPairing else { return }
             didOfferPairing = true
-            if !RemarkableAuth().isPaired() {
+            if !paired {
                 showPairing = true
+            }
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active {
+                paired = RemarkableAuth().isPaired()
+            }
+        }
+        .onChange(of: showPairing) { active in
+            if !active {
+                paired = RemarkableAuth().isPaired()
             }
         }
     }

@@ -310,7 +310,11 @@ describe("popupCopy", () => {
         primaryLabel: "Re-pair",
         openReason: "expired",
       },
-      rateLimit: { status: "Too many sends", detail: "Please wait a moment and try again.", primaryLabel: "OK" },
+      rateLimit: {
+        status: "Too many sends",
+        detail: "Please wait a moment and try again.",
+        primaryLabel: "OK",
+      },
       unsupportedPage: {
         status: "Can’t send this page",
         detail: "This page can’t be saved as an EPUB.",
@@ -337,6 +341,9 @@ describe("popupCopy", () => {
     for (const kind of Object.keys(expected) as ErrorKind[]) {
       expect(popupCopy({ name: "error", kind, page, busy: false })).toMatchObject(expected[kind]);
     }
+    expect(popupCopy({ name: "error", kind: "rateLimit", page, busy: false }).footnote).toBe(
+      "Wait a moment before sending another page.",
+    );
     expect(popupCopy({ name: "error", kind: "appUnreachable", page, busy: false }).secondaryLabel).toBe("Open app");
     expect(popupCopy({ name: "error", kind: "notPaired", page, busy: false }).secondaryLabel).toBe("Retry");
     expect(popupCopy({ name: "error", kind: "authExpired", busy: false }).clearPairing).toBe(true);
@@ -392,6 +399,8 @@ describe("errorKindForUploadFailure", () => {
     expect(errorKindForUploadFailure("Device impaired")).toBe("unknown");
     expect(errorKindForUploadFailure("The send timed out.")).toBe("timeout");
     expect(errorKindForUploadFailure("Too many requests.")).toBe("rateLimit");
+    expect(errorKindForUploadFailure("HTTP 429 from upload")).toBe("rateLimit");
+    expect(errorKindForUploadFailure("Request throttled by cloud")).toBe("rateLimit");
     expect(errorKindForUploadFailure("Network offline.")).toBe("network");
     expect(errorKindForUploadFailure("Refusing a message that carries secrets.")).toBe("unknown");
   });

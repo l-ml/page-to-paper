@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Page to Paper",
-  "description": "Send the current Safari page to your reMarkable Cloud Inbox. This build is a scaffold and does not upload.",
+  "description": "Send the current Safari article to your reMarkable Inbox as an EPUB (test mode: local mock upload).",
   "version": "0.1.0",
   "permissions": ["activeTab", "scripting", "nativeMessaging"],
   "background": {

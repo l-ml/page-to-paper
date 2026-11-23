@@ -22,7 +22,7 @@ The reader still sends the title, host, and byline. The EPUB is that title, the 
 
 The mock remembers idempotency keys in memory for the life of the extension process. Safari can kill that process, so a replay after that is best-effort. Retry of the same failed or timed-out send reuses the key. If that key was already recorded, the mock returns the original document id instead of creating another. A new Send, including one after success, gets a new key.
 
-In a DEBUG build, the App Group preference `mockUploadFault` can be `slow` or `fail`. The suite is `group.com.example.pagetopaper`. Any other value, and every Release build, leaves the mock instant and successful. `slow` records one document, then waits longer than the 20 second timeout. Retry returns that same document. `fail` rejects and records nothing.
+In a DEBUG build, the App Group preference `mockUploadFault` can be `slow`, `fail`, or `ratelimit` (configurable in **Settings → Developer → Mock upload fault**). The suite is `group.com.example.pagetopaper`. Any other value, and every Release build, leaves the mock instant and successful. `slow` records one document, then waits longer than the 20 second timeout. Retry returns that same document. `fail` rejects and records nothing. `ratelimit` returns `errorKind: "rateLimit"`.
 
 JavaScript never holds tokens. Preferences go in an App Group `UserDefaults` suite. Secrets, when pairing exists, go in a shared Keychain access group. The containing app cannot push work into the extension; the extension always starts the native call.
 
@@ -114,6 +114,10 @@ Permissions:
 - `activeTab`: read only the tab that was active when the popup opened.
 - `scripting`: inject `content.js` into that tab. There is no `content_scripts` entry and no host permission.
 - `nativeMessaging`: the service worker calls the containing app.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, repo conventions, and PR guidelines.
 
 ## License
 
