@@ -170,15 +170,7 @@ struct RemarkableCloudClient {
     func upload(_ draft: ArticleDraft, idempotencyKey: String) async -> UploadResult {
         let epub: Data
         switch converter.makeEpub(from: draft) {
-        case .failure(.tooLarge):
-            return UploadResult(
-                ok: false,
-                message: "This page is too large to save as an EPUB.",
-                documentId: nil,
-                implemented: false,
-                errorKind: "unsupportedPage"
-            )
-        case .failure(.unrepresentable):
+        case .failure:
             return Self.unprepared()
         case .epub(let data):
             epub = data

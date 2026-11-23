@@ -63,6 +63,7 @@ struct HomeView: View {
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var didOfferPairing = false
+    @State private var showSettings = false
     @State private var paired = false
 
     var body: some View {
@@ -76,7 +77,10 @@ struct HomeView: View {
                             .foregroundColor(paired ? .green : .secondary)
                     }
                 }
-                NavigationLink(destination: SettingsView(onResetOnboarding: onResetOnboarding)) {
+                NavigationLink(
+                    destination: SettingsView(onResetOnboarding: onResetOnboarding, onPairingChanged: refreshPairing),
+                    isActive: $showSettings
+                ) {
                     Text("Settings")
                 }
             }
@@ -89,7 +93,7 @@ struct HomeView: View {
         .listStyle(InsetGroupedListStyle())
         .navigationTitle("Page to Paper")
         .onAppear {
-            paired = RemarkableAuth().isPaired()
+            refreshPairing()
             guard !didOfferPairing else { return }
             didOfferPairing = true
             if !paired {
@@ -98,13 +102,22 @@ struct HomeView: View {
         }
         .onChange(of: scenePhase) { phase in
             if phase == .active {
-                paired = RemarkableAuth().isPaired()
+                refreshPairing()
             }
         }
         .onChange(of: showPairing) { active in
             if !active {
-                paired = RemarkableAuth().isPaired()
+                refreshPairing()
             }
         }
+        .onChange(of: showSettings) { active in
+            if !active {
+                refreshPairing()
+            }
+        }
+    }
+
+    private func refreshPairing() {
+        paired = RemarkableAuth().isPaired()
     }
 }

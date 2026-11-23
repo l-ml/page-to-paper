@@ -2,10 +2,12 @@ import SwiftUI
 
 struct SettingsView: View {
     var onResetOnboarding: (() -> Void)? = nil
+    var onPairingChanged: (() -> Void)? = nil
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var paired = false
     @State private var pairingReason: PairingReason?
+    @State private var showPairing = false
     @State private var confirmSignOut = false
     #if DEBUG
     @State private var mockFault = MockUploadFault.current()
@@ -24,7 +26,7 @@ struct SettingsView: View {
                 .padding(.vertical, 2)
             }
             Section(header: Text("reMarkable")) {
-                NavigationLink(destination: PairingView(reason: $pairingReason)) {
+                NavigationLink(destination: PairingView(reason: $pairingReason), isActive: $showPairing) {
                     HStack {
                         Text("Connection")
                         Spacer()
@@ -83,6 +85,12 @@ struct SettingsView: View {
                 refresh()
             }
         }
+        .onChange(of: showPairing) { active in
+            if !active {
+                refresh()
+                onPairingChanged?()
+            }
+        }
         .confirmationDialog("Sign out of reMarkable on this device?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Sign out", role: .destructive, action: signOut)
             Button("Cancel", role: .cancel) {}
@@ -107,6 +115,7 @@ struct SettingsView: View {
     private func signOut() {
         RemarkableAuth().signOut()
         refresh()
+        onPairingChanged?()
     }
 }
 

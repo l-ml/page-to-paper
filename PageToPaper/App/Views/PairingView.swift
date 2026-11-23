@@ -64,6 +64,7 @@ struct PairingView: View {
                             replacing = false
                             code = ""
                             showsError = false
+                            reason = nil
                             refresh()
                         }
                         .frame(minHeight: 44)
@@ -85,11 +86,16 @@ struct PairingView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             refresh()
+            syncReason()
         }
         .onChange(of: scenePhase) { phase in
             if phase == .active {
                 refresh()
+                syncReason()
             }
+        }
+        .onChange(of: reason) { _ in
+            syncReason()
         }
         .onChange(of: code) { _ in
             if showsError {
@@ -132,13 +138,32 @@ struct PairingView: View {
     private var reasonBanner: String? {
         switch reason {
         case .expired:
-            return "Your reMarkable session expired. Enter a fresh one-time code to reconnect."
+            return (!paired || replacing)
+                ? "Your reMarkable session expired. Enter a fresh one-time code to reconnect."
+                : nil
         case .required:
-            return "Pair your reMarkable before sending pages from Safari."
+            return (!paired || replacing)
+                ? "Pair your reMarkable before sending pages from Safari."
+                : nil
         case .unreachable:
             return "Page to Paper is open. Return to Safari and tap Retry."
         case .none:
             return nil
+        }
+    }
+
+    private func syncReason() {
+        switch reason {
+        case .expired:
+            if paired && !replacing {
+                replacing = true
+            }
+        case .required:
+            if paired && !replacing {
+                reason = nil
+            }
+        case .unreachable, .none:
+            break
         }
     }
 
@@ -173,7 +198,9 @@ struct PairingView: View {
     private func repair() {
         code = ""
         showsError = false
-        reason = nil
+        if reason == .unreachable {
+            reason = nil
+        }
         replacing = true
     }
 }
