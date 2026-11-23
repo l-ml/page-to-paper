@@ -2380,6 +2380,14 @@
     cutChild.remove();
     return (el.textContent ?? "").trim().length > 0;
   }
+  function hasTextBefore(parent, stopBefore) {
+    for (let node = parent.firstChild; node && node !== stopBefore; node = node.nextSibling) {
+      if ((node.textContent ?? "").trim().length > 0) {
+        return true;
+      }
+    }
+    return false;
+  }
   function boundContainerHtml(container, fullText, maxLength) {
     const target = unwrapSingleContainer(container);
     let wrapperOverhead = 0;
@@ -2402,26 +2410,26 @@
       const noticeHost = container.ownerDocument.createElement("div");
       noticeHost.innerHTML = truncationNotice;
       const noticeNodes = Array.from(noticeHost.childNodes);
+      const firstNotice = noticeNodes[0];
       for (const node of noticeNodes) {
         target.appendChild(node);
       }
       let candidate = container.innerHTML.trim();
-      if (candidate.length <= maxLength) {
+      if (candidate.length <= maxLength && hasTextBefore(target, firstNotice)) {
         return candidate;
       }
       let pops = 0;
       while (candidate.length > maxLength && pops < 4) {
-        const firstNotice = noticeNodes[0];
         const prev = firstNotice?.previousSibling;
         if (!prev) break;
         prev.remove();
         pops += 1;
-        if ((target.textContent ?? "").trim().length === noticeHost.textContent?.trim().length) {
+        if (!hasTextBefore(target, firstNotice)) {
           break;
         }
         candidate = container.innerHTML.trim();
       }
-      if (candidate.length <= maxLength && pops < 4) {
+      if (candidate.length <= maxLength && hasTextBefore(target, firstNotice)) {
         return candidate;
       }
     }
@@ -2429,15 +2437,17 @@
   }
   function truncatedPlainFallback(fullText, maxLength) {
     const wrapperOverhead = "<p></p>".length + truncationNotice.length;
-    if (maxLength <= wrapperOverhead) {
-      if (maxLength < "<p></p>".length + 1) return void 0;
-      const textBudget2 = maxLength - "<p></p>".length;
+    if (maxLength > wrapperOverhead) {
+      const textBudget2 = maxLength - wrapperOverhead;
       const clipped2 = escapeClippedText(fullText, textBudget2);
-      return clipped2 ? `<p>${clipped2}</p>` : void 0;
+      if (clipped2) {
+        return `<p>${clipped2}</p>${truncationNotice}`;
+      }
     }
-    const textBudget = maxLength - wrapperOverhead;
+    if (maxLength < "<p></p>".length + 1) return void 0;
+    const textBudget = maxLength - "<p></p>".length;
     const clipped = escapeClippedText(fullText, textBudget);
-    return clipped ? `<p>${clipped}</p>${truncationNotice}` : truncationNotice;
+    return clipped ? `<p>${clipped}</p>` : void 0;
   }
   function escapeClippedText(text, maxEscapedLength) {
     if (maxEscapedLength <= 0) return "";

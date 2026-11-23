@@ -272,6 +272,15 @@ function truncateElementToBudget(el: Element, budget: number): boolean {
   return (el.textContent ?? "").trim().length > 0;
 }
 
+function hasTextBefore(parent: Element, stopBefore: ChildNode | undefined): boolean {
+  for (let node = parent.firstChild; node && node !== stopBefore; node = node.nextSibling) {
+    if ((node.textContent ?? "").trim().length > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function boundContainerHtml(container: Element, fullText: string, maxLength: number): string | undefined {
   const target = unwrapSingleContainer(container);
 
@@ -297,29 +306,29 @@ function boundContainerHtml(container: Element, fullText: string, maxLength: num
     const noticeHost = container.ownerDocument.createElement("div");
     noticeHost.innerHTML = truncationNotice;
     const noticeNodes = Array.from(noticeHost.childNodes);
+    const firstNotice = noticeNodes[0];
     for (const node of noticeNodes) {
       target.appendChild(node);
     }
 
     let candidate = container.innerHTML.trim();
-    if (candidate.length <= maxLength) {
+    if (candidate.length <= maxLength && hasTextBefore(target, firstNotice)) {
       return candidate;
     }
 
-    // Bounded safety trim in case whitespace serialization pushed candidate slightly over budget
+    // Bounded safety trim in case serialization pushed candidate slightly over budget
     let pops = 0;
     while (candidate.length > maxLength && pops < 4) {
-      const firstNotice = noticeNodes[0];
       const prev = firstNotice?.previousSibling;
       if (!prev) break;
       prev.remove();
       pops += 1;
-      if ((target.textContent ?? "").trim().length === noticeHost.textContent?.trim().length) {
+      if (!hasTextBefore(target, firstNotice)) {
         break;
       }
       candidate = container.innerHTML.trim();
     }
-    if (candidate.length <= maxLength && pops < 4) {
+    if (candidate.length <= maxLength && hasTextBefore(target, firstNotice)) {
       return candidate;
     }
   }
@@ -329,15 +338,17 @@ function boundContainerHtml(container: Element, fullText: string, maxLength: num
 
 function truncatedPlainFallback(fullText: string, maxLength: number): string | undefined {
   const wrapperOverhead = "<p></p>".length + truncationNotice.length;
-  if (maxLength <= wrapperOverhead) {
-    if (maxLength < "<p></p>".length + 1) return undefined;
-    const textBudget = maxLength - "<p></p>".length;
+  if (maxLength > wrapperOverhead) {
+    const textBudget = maxLength - wrapperOverhead;
     const clipped = escapeClippedText(fullText, textBudget);
-    return clipped ? `<p>${clipped}</p>` : undefined;
+    if (clipped) {
+      return `<p>${clipped}</p>${truncationNotice}`;
+    }
   }
-  const textBudget = maxLength - wrapperOverhead;
+  if (maxLength < "<p></p>".length + 1) return undefined;
+  const textBudget = maxLength - "<p></p>".length;
   const clipped = escapeClippedText(fullText, textBudget);
-  return clipped ? `<p>${clipped}</p>${truncationNotice}` : truncationNotice;
+  return clipped ? `<p>${clipped}</p>` : undefined;
 }
 
 function escapeClippedText(text: string, maxEscapedLength: number): string {

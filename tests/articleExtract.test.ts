@@ -197,6 +197,27 @@ describe("cleanAndBoundHtml", () => {
     expect(elapsedMs).toBeLessThan(2_000);
   });
 
+  it("never returns notice-only HTML without article body text across tight maxLength bounds", () => {
+    const notice = "<p><em>[Article truncated to fit the EPUB size limit.]</em></p>";
+    const inputs = [
+      "<p>&amp; leading entity and body text that exceeds the limit</p>",
+      "<div><p>Alpha</p><p>Beta</p><p>Gamma</p></div>",
+      "<div><p>One</p><p>A</p><p>B</p><p>C</p><p>D</p></div>",
+    ];
+    for (const html of inputs) {
+      for (let maxLength = 50; maxLength <= 160; maxLength += 1) {
+        const cleaned = cleanAndBoundHtml(html, document, { maxLength });
+        if (!cleaned) continue;
+        expect(cleaned.length).toBeLessThanOrEqual(maxLength);
+        const bodyText = cleaned
+          .replace(notice, "")
+          .replace(/<[^>]+>/g, "")
+          .trim();
+        expect(bodyText.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it("bounds a single giant paragraph cleanly within maxLength", () => {
     const huge = `<p>${"x".repeat(limits.html + 5_000)}</p>`;
     const cleaned = cleanAndBoundHtml(huge, document, { maxLength: limits.html });
