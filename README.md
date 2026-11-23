@@ -1,22 +1,28 @@
 # Page to Paper
 
-Page to Paper is an iOS Safari web extension in the style of Safari Reader. From the toolbar it reads the current page and, in a later version, will build an EPUB and upload it to the reMarkable Cloud Inbox.
+Page to Paper is an iOS Safari web extension in the style of Safari Reader. From the toolbar it reads the current page, builds an EPUB, and hands that file to a mock upload. Nothing is sent to a reMarkable.
 
-> **Unofficial API.** Page to Paper is not affiliated with reMarkable. Uploading would use reMarkable’s unofficial Cloud API, which can change or be withdrawn without notice. This repository does not call that API and does not build an EPUB. Pairing stores an 8-character code in the Keychain as a stand-in token.
+> **Unofficial API.** Page to Paper is not affiliated with reMarkable. A real upload would use reMarkable’s unofficial Cloud API, which can change or be withdrawn without notice. This repository does not call that API. There is no reMarkable host, no ATS exception, and no network request for a device token. Pairing stores an 8-character code in the Keychain as a stand-in token. The upload transport is a mock. A real transport is a separate follow-up and is not approved.
 
 v1 is the Safari extension only. There is no Share Sheet and no folder picker. The intended distribution is TestFlight, and nothing in this repo submits a build.
 
-## What the scaffold does
+## What this build does
 
-The happy path is wired, and every network and file step is a stub.
+The send path runs against a mock. It does not open a connection.
 
 1. The popup injects a reader into the active tab, then reads the page title and host. It does not upload on open. Pages that refuse injection show an error.
 2. The confirm screen shows Destination Inbox, Format EPUB, and Send. If the app is not paired, the button is Pair device. If the device is offline, Send is disabled.
-3. Send calls `SafariWebExtensionHandler`. The stub sets `implemented: false`, so the popup says the send is not available yet. It shows Sent only when a result says `implemented: true`.
-4. Done closes the popup. It also closes about 1.2 seconds after success.
+3. Send builds an EPUB and passes it to `MockUploadTransport` with an idempotency key. The popup says "Test mode: nothing was uploaded to your reMarkable." It shows Sent only when a result says `implemented: true` and `mock` is not true.
+4. Done closes the popup. A real success also closes after about 1.2 seconds. A mock success stays until Done, so the test-mode line can be read.
 5. Pair device, Re-pair, and Open app set `window.location.href` to `pagetopaper://pair`. The containing app opens Pairing from that URL.
 
-A valid article still gets `ok: true` from the handler, with `implemented: false`. Nothing is uploaded. A bad message gets `ok: false`. Native calls give up after 10 seconds and the popup shows that it could not reach the app.
+A valid paired send gets `ok: true`, `implemented: false`, and `mock: true`. The document id starts with `mock-`. A bad message gets `ok: false`. An unpaired send is refused with `notPaired`. Pairing and page reads give up after 10 seconds. A send waits 25 seconds so the app’s 20 second transport timeout can come back as `errorKind: timeout`.
+
+The reader still sends the title, host, and byline. The EPUB is that title, the byline, and the source URL. If a draft also includes HTML, that HTML is turned into XHTML with scripts, styles, frames, and external resources removed.
+
+The mock remembers idempotency keys in memory for the life of the extension process. Safari can kill that process, so a replay after that is best-effort. Retry of the same failed or timed-out send reuses the key. If that key was already recorded, the mock returns the original document id instead of creating another. A new Send, including one after success, gets a new key.
+
+In a DEBUG build, the App Group preference `mockUploadFault` can be `slow` or `fail`. The suite is `group.com.example.pagetopaper`. Any other value, and every Release build, leaves the mock instant and successful. `slow` records one document, then waits longer than the 20 second timeout. Retry returns that same document. `fail` rejects and records nothing.
 
 JavaScript never holds tokens. Preferences go in an App Group `UserDefaults` suite. Secrets, when pairing exists, go in a shared Keychain access group. The containing app cannot push work into the extension; the extension always starts the native call.
 
@@ -31,13 +37,13 @@ PageToPaper/Shared/          Swift compiled into both targets
 PageToPaper.xcodeproj        Checked-in Xcode project
 ```
 
-Shared Swift types are `AppPreferences`, `ArticleDraft`, `ArticleConverter`, `ExtensionMessageRouter`, `PairingCode`, `RemarkableAuth`, `RemarkableCloudClient`, `TokenStore`, and `UploadResult`. `TokenStore` keeps the pairing stand-in in the Keychain. The stub upload does not read it. `ArticleConverter.makeEpub` returns nil.
+Shared Swift types are `AppPreferences`, `ArticleDraft`, `ArticleConverter`, `ExtensionMessageRouter`, `PairingCode`, `RemarkableAuth`, `RemarkableCloudClient`, `TokenStore`, and `UploadResult`. `TokenStore` keeps the pairing stand-in in the Keychain. The mock upload does not read it. `ArticleConverter.makeEpub` builds an EPUB 3 archive. `RemarkableCloudClient` sends it through `UploadTransport`. The default transport is `MockUploadTransport`.
 
 ## Placeholder identifiers
 
 These must be replaced before you sign or ship a build. They are not registered to this project.
 
-Xcode expands `$(AppIdentifierPrefix)` and `$(DEVELOPMENT_TEAM)` before the app runs. With no development team those values become empty or the bare suffix `com.example.pagetopaper.shared`, not the literal `$(...)` text, and the simulator will still accept a private keychain write. Pairing is stored only when the resolved team id and access group match `TeamID.com.example.pagetopaper.shared`. Otherwise `TokenStore` refuses the write, logs it, and asserts in DEBUG. Connected is shown only after that write is read back unchanged. Preferences never fall back to `UserDefaults.standard` if the App Group suite cannot be opened. In DEBUG the app shows that failure; otherwise onboarding is simply not recorded.
+Xcode expands `$(AppIdentifierPrefix)` and `$(DEVELOPMENT_TEAM)` before the app runs. With no development team those values become empty or the bare suffix `com.example.pagetopaper.shared`, not the literal `$(...)` text. A Debug simulator build then omits the access group and uses the keychain default, logs that once, and does not assert. Both targets list the same group in their entitlements, so that default is the shared slot on the simulator. A Release build and any device build still refuse the write, and a device Debug build also asserts, so a signed build cannot silently keep two keychains. When a team is set, pairing is stored in `TeamID.com.example.pagetopaper.shared`. Connected is shown only after that write is read back unchanged. Preferences never fall back to `UserDefaults.standard` if the App Group suite cannot be opened. In DEBUG the app shows that failure; otherwise onboarding is simply not recorded.
 
 | Use | Value |
 | --- | --- |
@@ -96,8 +102,8 @@ Extension JavaScript and the native handler share one shape. No token fields are
 | Content script to popup | `{ "type": "articleDraft", "title", "url", "byline"? }` |
 | Popup to the app, before Send | `{ "type": "pairingStatus" }` |
 | App to the popup | `{ "paired": true/false }` |
-| Popup to the app, after Send | `{ "type": "uploadArticle", "draft": { "title", "url", "html"?, "byline"? } }` |
-| App to the popup | `{ "ok", "message", "documentId"?, "errorKind"? }` |
+| Popup to the app, after Send | `{ "type": "uploadArticle", "idempotencyKey", "draft": { "title", "url", "html"?, "byline"? } }` |
+| App to the popup | `{ "ok", "message", "implemented", "mock"?, "documentId"?, "errorKind"? }` |
 
 The pairing code is 8 letters or digits from `https://my.remarkable.com/device/browser/connect`. The app trims it, lowercases it, and strips spaces and hyphens before checking `^[a-z0-9]{8}$`. Pair stays disabled until that matches. The app does not call the site.
 

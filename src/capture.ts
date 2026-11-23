@@ -61,11 +61,18 @@ export async function queryPaired(dispatch: NativeDispatch): Promise<PairingQuer
   }
 }
 
-export async function uploadDraft(draft: ArticleDraft, dispatch: NativeDispatch): Promise<UploadResult> {
+export async function uploadDraft(
+  draft: ArticleDraft,
+  idempotencyKey: string,
+  dispatch: NativeDispatch,
+): Promise<UploadResult> {
   try {
-    const raw = await dispatch(buildUploadRequest(draft));
+    const raw = await dispatch(buildUploadRequest(draft, idempotencyKey));
     return parseUploadResult(raw);
-  } catch {
+  } catch (error) {
+    if (error instanceof MessageShapeError) {
+      return { ok: false, message: "The page could not be prepared as an EPUB." };
+    }
     return { ok: false, message: "The Page to Paper app did not answer." };
   }
 }

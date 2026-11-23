@@ -9,13 +9,21 @@ import {
   nativeCallTimeoutMs,
   popupCopy,
   previewFromDraft,
+  autoDismisses,
   dismissClosesPopup,
+  mockSuccessDetail,
+  nativeTimeoutMs,
   reducePopup,
   successDismissMs,
+  uploadRoundTripMs,
   type ErrorKind,
   type PagePreview,
   type PopupPhase,
 } from "../src/popupState";
+
+function send(idempotencyKey: string) {
+  return { type: "send" as const, idempotencyKey };
+}
 
 const draft: ArticleDraft = {
   title: "Dispatch",
@@ -52,13 +60,13 @@ describe("reducePopup", () => {
   });
 
   it("sends only from a paired online confirm screen", () => {
-    expect(reducePopup(ready(), { type: "send" }).name).toBe("sending");
-    expect(reducePopup(ready({ paired: false }), { type: "send" }).name).toBe("ready");
-    expect(reducePopup(ready({ offline: true }), { type: "send" }).name).toBe("ready");
+    expect(reducePopup(ready(), send("11111111-1111-4111-8111-111111111111")).name).toBe("sending");
+    expect(reducePopup(ready({ paired: false }), send("11111111-1111-4111-8111-111111111111")).name).toBe("ready");
+    expect(reducePopup(ready({ offline: true }), send("11111111-1111-4111-8111-111111111111")).name).toBe("ready");
   });
 
   it("keeps success for a real upload and never treats a stub reply as sent", () => {
-    const sending = reducePopup(ready(), { type: "send" });
+    const sending = reducePopup(ready(), send("11111111-1111-4111-8111-111111111111"));
     const stub = eventForUploadResult({
       ok: true,
       message: "Stub accepted. Nothing was uploaded; EPUB conversion and reMarkable Cloud are not implemented.",
@@ -70,6 +78,14 @@ describe("reducePopup", () => {
     const real = reducePopup(sending, eventForUploadResult({ ok: true, message: "Uploaded.", implemented: true }));
     expect(real.name).toBe("success");
     expect(popupCopy(real)).toMatchObject({ status: "Sent", detail: "Saved to Inbox as EPUB." });
+    const mocked = eventForUploadResult({
+      ok: true,
+      message: mockSuccessDetail,
+      implemented: true,
+      mock: true,
+    });
+    expect(mocked.type).toBe("uploadMocked");
+    expect(reducePopup(sending, mocked).name).toBe("mockSuccess");
     expect(popupCopy({ name: "unavailable", page, busy: false })).toMatchObject({
       status: "Not available yet",
       detail: "Sending to your reMarkable isn't implemented in this build.",
@@ -100,7 +116,7 @@ describe("reducePopup", () => {
       expect(reducePopup(failed, { type: "retry" }).name).toBe("reading");
       expect(calls).toEqual(["background"]);
 
-      const afterSend = reducePopup(reducePopup(ready(), { type: "send" }), {
+      const afterSend = reducePopup(reducePopup(ready(), send("11111111-1111-4111-8111-111111111111")), {
         type: "uploadFailed",
         kind: "appUnreachable",
       });
@@ -112,7 +128,7 @@ describe("reducePopup", () => {
   });
 
   it("retries a send, rereads the page, or returns to confirm", () => {
-    const sending = reducePopup(ready(), { type: "send" });
+    const sending = reducePopup(ready(), send("11111111-1111-4111-8111-111111111111"));
     const network = reducePopup(sending, { type: "uploadFailed", kind: "network" });
     expect(reducePopup(network, { type: "retry" }).name).toBe("sending");
     const noPage = reducePopup({ name: "error", kind: "network", busy: false }, { type: "retry" });
@@ -131,7 +147,7 @@ describe("reducePopup", () => {
   });
 
   it("keeps Send disabled when OK is tapped while offline", () => {
-    const sending = reducePopup(ready(), { type: "send" });
+    const sending = reducePopup(ready(), send("11111111-1111-4111-8111-111111111111"));
     const limited = reducePopup(sending, { type: "uploadFailed", kind: "rateLimit" });
     const back = reducePopup(limited, { type: "acknowledge", offline: true });
     expect(back).toMatchObject({ name: "ready", offline: true, paired: true });
@@ -174,7 +190,7 @@ describe("popupCopy", () => {
   });
 
   it("shows sending and success copy", () => {
-    const sending = reducePopup(ready(), { type: "send" });
+    const sending = reducePopup(ready(), send("11111111-1111-4111-8111-111111111111"));
     expect(popupCopy(sending)).toMatchObject({
       status: "Sending as EPUB…",
       detail: "Preparing EPUB…",
@@ -190,11 +206,98 @@ describe("popupCopy", () => {
       announcement: "Sent to reMarkable Inbox as EPUB.",
     });
     expect(successDismissMs).toBe(1200);
+    expect(autoDismisses(success)).toBe(true);
+  });
+
+  it("shows test mode for a mock success and keeps it distinct from Sent", () => {
+    const sending = reducePopup(ready(), send("11111111-1111-4111-8111-111111111111"));
+    const mocked = reducePopup(sending, {
+      type: "uploadMocked",
+    });
+    expect(popupCopy(mocked)).toMatchObject({
+      status: "Test mode",
+      detail: mockSuccessDetail,
+      primaryLabel: "Done",
+      announcement: mockSuccessDetail,
+    });
+    expect(popupCopy(mocked).detail).not.toBe("Saved to Inbox as EPUB.");
+    expect(autoDismisses(mocked)).toBe(false);
+    const timeout = reducePopup(sending, eventForUploadResult({ ok: false, message: "The send timed out.", errorKind: "timeout" }));
+    expect(popupCopy(timeout)).toMatchObject({
+      status: "Timed out",
+      detail: "The send took too long. Try again.",
+      primaryLabel: "Retry",
+      primaryAction: "retry-send",
+    });
+    const badPayload = reducePopup(
+      sending,
+      eventForUploadResult({ ok: false, message: "The page could not be prepared as an EPUB.", errorKind: "unsupportedPage" }),
+    );
+    expect(popupCopy(badPayload)).toMatchObject({
+      status: "Can’t send this page",
+      detail: "This page can’t be saved as an EPUB.",
+      primaryAction: "dismiss",
+    });
+    const unpaired = reducePopup(
+      sending,
+      eventForUploadResult({ ok: false, message: "Pair your reMarkable in the Page to Paper app.", errorKind: "notPaired" }),
+    );
+    expect(popupCopy(unpaired)).toMatchObject({
+      status: "Pairing required",
+      primaryLabel: "Re-pair",
+      primaryAction: "open-app",
+    });
+  });
+
+  it("returns the same phase for the same send event and reuses that key on Retry", () => {
+    const event = send("11111111-1111-4111-8111-111111111111");
+    const first = reducePopup(ready(), event);
+    expect(reducePopup(ready(), event)).toEqual(first);
+    expect(first).toMatchObject({ name: "sending", idempotencyKey: event.idempotencyKey });
+    const timedOut = reducePopup(first, { type: "uploadFailed", kind: "timeout" });
+    const retry = { type: "retry" as const, idempotencyKey: "22222222-2222-4222-8222-222222222222" };
+    const retried = reducePopup(timedOut, retry);
+    expect(retried).toEqual(reducePopup(timedOut, retry));
+    expect(retried).toMatchObject({ name: "sending", idempotencyKey: event.idempotencyKey });
+  });
+
+  it("uses a new idempotency key per send, the same key on Retry, and a new key after success", () => {
+    const first = reducePopup(ready(), send("key-page-one-aaaa"));
+    const secondPage = reducePopup(ready(), send("key-page-two-bbbb"));
+    if (first.name !== "sending" || secondPage.name !== "sending") throw new Error("expected sending");
+    expect(first.idempotencyKey).toBe("key-page-one-aaaa");
+    expect(secondPage.idempotencyKey).toBe("key-page-two-bbbb");
+
+    const timedOut = reducePopup(first, { type: "uploadFailed", kind: "timeout" });
+    const retried = reducePopup(timedOut, { type: "retry" });
+    expect(retried).toMatchObject({ name: "sending", idempotencyKey: first.idempotencyKey });
+    const unknown = reducePopup(first, { type: "uploadFailed", kind: "unknown" });
+    expect(reducePopup(unknown, { type: "retry" })).toMatchObject({ idempotencyKey: first.idempotencyKey });
+    const watchdog = reducePopup(first, { type: "busyTimeout" });
+    expect(reducePopup(watchdog, { type: "retry" })).toMatchObject({ idempotencyKey: first.idempotencyKey });
+
+    const succeeded = reducePopup(first, { type: "uploadSucceeded" });
+    const afterReal = reducePopup(ready(), send("key-after-real-cccc"));
+    if (afterReal.name !== "sending") throw new Error("expected sending");
+    expect(succeeded.name).toBe("success");
+    expect(afterReal.idempotencyKey).toBe("key-after-real-cccc");
+
+    const mocked = reducePopup(first, { type: "uploadMocked" });
+    const afterMock = reducePopup(ready(), send("key-after-mock-dddd"));
+    if (afterMock.name !== "sending") throw new Error("expected sending");
+    expect(mocked.name).toBe("mockSuccess");
+    expect(afterMock.idempotencyKey).toBe("key-after-mock-dddd");
+
+    const dismissed = reducePopup(timedOut, { type: "acknowledge", offline: false });
+    const resent = reducePopup(dismissed, send("key-after-dismiss-eeee"));
+    if (resent.name !== "sending") throw new Error("expected sending");
+    expect(resent.idempotencyKey).toBe("key-after-dismiss-eeee");
   });
 
   it("maps every error kind to its copy and deep link reason", () => {
     const expected: Record<ErrorKind, { status: string; detail: string; primaryLabel: string; openReason?: string }> = {
       network: { status: "Couldn’t send", detail: "Check your connection and try again.", primaryLabel: "Retry" },
+      timeout: { status: "Timed out", detail: "The send took too long. Try again.", primaryLabel: "Retry" },
       notPaired: {
         status: "Pairing required",
         detail: "Open Page to Paper and pair your reMarkable.",
@@ -248,6 +351,7 @@ describe("popupCopy", () => {
       ready(),
       ready({ paired: false }),
       { name: "success", page, busy: false },
+      { name: "mockSuccess", page, busy: false },
       { name: "unavailable", page, busy: false },
       ...errorKinds.map((kind): PopupPhase => ({ name: "error", kind, page, busy: false })),
     ];
@@ -256,7 +360,7 @@ describe("popupCopy", () => {
       expect(popupCopy(phase).busy).toBe(false);
     }
     const reading = reducePopup(initialPopup(), { type: "open" });
-    const sending = reducePopup(ready(), { type: "send" });
+    const sending = reducePopup(ready(), send("11111111-1111-4111-8111-111111111111"));
     expect(popupCopy(reading).busy).toBe(reading.busy);
     expect(popupCopy(sending).busy).toBe(true);
     for (const phase of [reading, sending]) {
@@ -286,18 +390,25 @@ describe("errorKindForUploadFailure", () => {
     expect(errorKindForUploadFailure("Couldn't generate the EPUB.")).toBe("unsupportedPage");
     expect(errorKindForUploadFailure("please separate files")).toBe("unknown");
     expect(errorKindForUploadFailure("Device impaired")).toBe("unknown");
+    expect(errorKindForUploadFailure("The send timed out.")).toBe("timeout");
     expect(errorKindForUploadFailure("Too many requests.")).toBe("rateLimit");
     expect(errorKindForUploadFailure("Network offline.")).toBe("network");
     expect(errorKindForUploadFailure("Refusing a message that carries secrets.")).toBe("unknown");
   });
 
   it("uses an explicit errorKind and does not clear pairing from message text", () => {
-    const sending = reducePopup(ready(), { type: "send" });
+    const sending = reducePopup(ready(), send("11111111-1111-4111-8111-111111111111"));
     const explicit = reducePopup(sending, eventForUploadResult({ ok: false, message: "Device impaired", errorKind: "notPaired" }));
     expect(explicit).toMatchObject({ name: "error", kind: "notPaired" });
     expect(popupCopy(explicit).clearPairing).toBe(true);
     const guessed = reducePopup(sending, eventForUploadResult({ ok: false, message: "Not paired." }));
     expect(guessed).toMatchObject({ name: "error", kind: "unknown" });
     expect(popupCopy(guessed).clearPairing).toBeUndefined();
+  });
+
+  it("gives an upload a longer round trip than a pairing check", () => {
+    expect(uploadRoundTripMs).toBeGreaterThan(nativeCallTimeoutMs);
+    expect(nativeTimeoutMs({ type: "pairingStatus" })).toBe(nativeCallTimeoutMs);
+    expect(nativeTimeoutMs({ type: "uploadArticle" })).toBe(uploadRoundTripMs);
   });
 });

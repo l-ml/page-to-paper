@@ -20,6 +20,8 @@
     resultMessage: 500,
     documentId: 200
   };
+  var idempotencyKeyMin = 8;
+  var idempotencyKeyMax = 80;
   var messageTypes = {
     extractArticle: "extractArticle",
     articleDraft: "articleDraft",
@@ -47,6 +49,7 @@
   }
   var uploadErrorKinds = [
     "network",
+    "timeout",
     "notPaired",
     "authExpired",
     "rateLimit",
@@ -150,10 +153,54 @@
     if (byline) draft.byline = byline;
     return draft;
   }
-  function buildUploadRequest(draft) {
+  function isIdempotencyKey(value) {
+    if (value.length < idempotencyKeyMin || value.length > idempotencyKeyMax) return false;
+    for (const char of value) {
+      const code = char.charCodeAt(0);
+      const digit = code >= 48 && code <= 57;
+      const upper = code >= 65 && code <= 90;
+      const lower = code >= 97 && code <= 122;
+      if (!digit && !upper && !lower && code !== 45) return false;
+    }
+    return true;
+  }
+  function newIdempotencyKey() {
+    const generated = readRandomUUID();
+    if (generated && isIdempotencyKey(generated)) return generated;
+    return fallbackIdempotencyKey();
+  }
+  function readRandomUUID() {
+    const randomUUID = globalThis.crypto?.randomUUID;
+    if (typeof randomUUID !== "function") return void 0;
+    try {
+      return randomUUID.call(globalThis.crypto);
+    } catch {
+      return void 0;
+    }
+  }
+  function fallbackIdempotencyKey() {
+    const bytes = new Uint8Array(16);
+    const random = globalThis.crypto?.getRandomValues;
+    if (typeof random === "function") {
+      random.call(globalThis.crypto, bytes);
+    } else {
+      for (let i = 0; i < bytes.length; i += 1) {
+        bytes[i] = Math.floor(Math.random() * 256);
+      }
+    }
+    bytes[6] = bytes[6] & 15 | 64;
+    bytes[8] = bytes[8] & 63 | 128;
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+  function buildUploadRequest(draft, idempotencyKey) {
     const parsed = parseArticleDraft(draft);
+    if (!isIdempotencyKey(idempotencyKey)) {
+      throw new MessageShapeError("Idempotency key is invalid.");
+    }
     const request = {
       type: messageTypes.uploadArticle,
+      idempotencyKey,
       draft: { title: parsed.title, url: parsed.url }
     };
     if (parsed.html) request.draft.html = parsed.html;
@@ -173,6 +220,7 @@
     }
     const result = { ok: value.ok, message };
     if (typeof value.implemented === "boolean") result.implemented = value.implemented;
+    if (typeof value.mock === "boolean") result.mock = value.mock;
     if (typeof value.errorKind === "string" && uploadErrorKinds.includes(value.errorKind)) {
       result.errorKind = value.errorKind;
     }
@@ -231,11 +279,14 @@
       return { status: "unreachable" };
     }
   }
-  async function uploadDraft(draft, dispatch2) {
+  async function uploadDraft(draft, idempotencyKey, dispatch2) {
     try {
-      const raw = await dispatch2(buildUploadRequest(draft));
+      const raw = await dispatch2(buildUploadRequest(draft, idempotencyKey));
       return parseUploadResult(raw);
-    } catch {
+    } catch (error) {
+      if (error instanceof MessageShapeError) {
+        return { ok: false, message: "The page could not be prepared as an EPUB." };
+      }
       return { ok: false, message: "The Page to Paper app did not answer." };
     }
   }
@@ -246,7 +297,13 @@
   // src/popupState.ts
   var successDismissMs = 1200;
   var nativeCallTimeoutMs = 1e4;
+  var uploadRoundTripMs = 25e3;
   var unavailableDetail = "Sending to your reMarkable isn't implemented in this build.";
+  var mockSuccessDetail = "Test mode: nothing was uploaded to your reMarkable.";
+  function nativeTimeoutMs(message) {
+    if (isRecord(message) && message.type === messageTypes.uploadArticle) return uploadRoundTripMs;
+    return nativeCallTimeoutMs;
+  }
   function initialPopup() {
     return { name: "idle", busy: false };
   }
@@ -274,16 +331,26 @@
         return { name: "error", kind: "unsupportedPage", busy: false };
       case "send":
         if (state.name !== "ready" || !state.paired || state.offline) return state;
-        return { name: "sending", page: state.page, busy: true };
+        return { name: "sending", page: state.page, idempotencyKey: event.idempotencyKey, busy: true };
       case "uploadSucceeded":
         if (state.name !== "sending") return state;
         return { name: "success", page: state.page, busy: false };
+      case "uploadMocked":
+        if (state.name !== "sending") return state;
+        return { name: "mockSuccess", page: state.page, busy: false };
       case "uploadUnavailable":
         if (state.name !== "sending") return state;
         return { name: "unavailable", page: state.page, busy: false };
       case "uploadFailed":
         if (state.name !== "sending") return state;
-        return { name: "error", kind: event.kind, page: state.page, afterSend: true, busy: false };
+        return {
+          name: "error",
+          kind: event.kind,
+          page: state.page,
+          afterSend: true,
+          idempotencyKey: state.idempotencyKey,
+          busy: false
+        };
       case "nativeUnreachable":
         if (state.name !== "reading") return state;
         return { name: "error", kind: "appUnreachable", page: event.page, afterSend: false, busy: false };
@@ -294,9 +361,10 @@
           kind: "appUnreachable",
           page: pageOf(state),
           afterSend: state.name === "sending",
+          idempotencyKey: state.name === "sending" ? state.idempotencyKey : void 0,
           busy: false
         };
-      case "retry":
+      case "retry": {
         if (state.name !== "error") return state;
         if (state.kind === "appUnreachable" && !state.afterSend) {
           return { name: "reading", busy: true };
@@ -305,7 +373,10 @@
           return { name: "reading", busy: true };
         }
         if (state.kind === "rateLimit" || state.kind === "unsupportedPage") return state;
-        return { name: "sending", page: state.page, busy: true };
+        const idempotencyKey = state.idempotencyKey ?? event.idempotencyKey;
+        if (!idempotencyKey) return state;
+        return { name: "sending", page: state.page, idempotencyKey, busy: true };
+      }
       case "acknowledge": {
         const offline = event.offline === true;
         if (state.name === "unavailable") {
@@ -322,7 +393,7 @@
         };
       }
       case "done":
-        if (state.name !== "success") return state;
+        if (state.name !== "success" && state.name !== "mockSuccess") return state;
         return { name: "idle", busy: false };
       case "connectivity":
         if (state.name !== "ready") return state;
@@ -375,6 +446,18 @@
           primaryDisabled: false,
           announcement: "Sent to reMarkable Inbox as EPUB."
         };
+      case "mockSuccess":
+        return {
+          ...preview(state.page),
+          showMeta: false,
+          status: "Test mode",
+          detail: mockSuccessDetail,
+          footnote: "",
+          primaryLabel: "Done",
+          primaryAction: "done",
+          primaryDisabled: false,
+          announcement: mockSuccessDetail
+        };
       case "unavailable":
         return {
           ...preview(state.page),
@@ -394,13 +477,18 @@
     }
   }
   function eventForUploadResult(result) {
+    if (result.ok && result.mock === true) return { type: "uploadMocked" };
     if (result.ok && result.implemented === true) return { type: "uploadSucceeded" };
     if (result.ok) return { type: "uploadUnavailable" };
     if (result.errorKind) return { type: "uploadFailed", kind: result.errorKind };
     return { type: "uploadFailed", kind: errorKindForUploadFailure(result.message) };
   }
+  function autoDismisses(state) {
+    return state.name === "success";
+  }
   function errorKindForUploadFailure(message) {
     const text = message.toLowerCase();
+    if (text.includes("timed out") || text.includes("timeout")) return "timeout";
     if (/\btoo many\b/.test(text) || /\brate\b/.test(text)) return "rateLimit";
     if (text.includes("offline") || text.includes("network") || text.includes("connection")) return "network";
     if (text.includes("did not answer") || text.includes("unreadable") || text.includes("empty message")) {
@@ -430,6 +518,7 @@
   function errorCopy(kind, page, afterSend = false) {
     const table = {
       network: view("Couldn\u2019t send", "Check your connection and try again.", "Retry", "retry-send"),
+      timeout: view("Timed out", "The send took too long. Try again.", "Retry", "retry-send"),
       notPaired: {
         ...view("Pairing required", "Open Page to Paper and pair your reMarkable.", "Re-pair", "open-app"),
         secondaryLabel: "Retry",
@@ -500,14 +589,14 @@
 
   // src/nativeCall.ts
   var timeoutMessage = "The Page to Paper app did not answer.";
-  function requestNative(message, sendMessage) {
+  function requestNative(message, sendMessage, timeoutMs = nativeCallTimeoutMs) {
     const type = messageType(message);
     console.info(`[page-to-paper] popup \u2192 background ${type}`);
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         console.warn(`[page-to-paper] popup timeout ${type}`);
         reject(new Error(timeoutMessage));
-      }, nativeCallTimeoutMs);
+      }, timeoutMs);
       sendMessage({ type: "nativeRequest", payload: message }).then(
         (response) => {
           clearTimeout(timer);
@@ -530,6 +619,14 @@
   function messageType(message) {
     if (isRecord(message) && typeof message.type === "string") return message.type;
     return "unknown";
+  }
+
+  // src/popupAttempt.ts
+  function nextAttempt(current) {
+    return current + 1;
+  }
+  function isCurrentAttempt(started, current) {
+    return started === current;
   }
 
   // src/popupRender.ts
@@ -595,12 +692,13 @@
     }
     function arm() {
       disarm();
+      const budget = phase.name === "sending" ? uploadRoundTripMs : timeoutMs;
       watchdog = clock.setTimeout(() => {
         watchdog = void 0;
         if (!phase.busy) return;
         log(`[page-to-paper] popup watchdog timeout ${phase.name}`);
         commit({ type: "busyTimeout" });
-      }, timeoutMs);
+      }, budget);
     }
     function commit(event) {
       const from = phase;
@@ -622,8 +720,9 @@
     render: (phase) => renderPopup(document, phase)
   });
   var dismissTimer;
+  var attempt = 0;
   function dispatch(message) {
-    return requestNative(message, (body) => browser.runtime.sendMessage(body));
+    return requestNative(message, (body) => browser.runtime.sendMessage(body), nativeTimeoutMs(message));
   }
   function openApp(reason) {
     assignPairingLink(window.location, reason);
@@ -637,6 +736,8 @@
   }
   async function loadPage() {
     clearTimeout(dismissTimer);
+    const started = nextAttempt(attempt);
+    attempt = started;
     session.commit({ type: "open" });
     const read = await readActivePage({
       queryActiveTab: async () => {
@@ -648,14 +749,14 @@
       },
       extract: (tabId) => browser.tabs.sendMessage(tabId, { type: "extractArticle" })
     });
-    if (session.phase().name !== "reading") return;
+    if (!isCurrentAttempt(started, attempt) || session.phase().name !== "reading") return;
     if (!read.ok) {
       session.commit(read.reason === "unsupported" ? { type: "pageUnsupported" } : { type: "pageUnread" });
       return;
     }
     const page = previewFromDraft(read.draft);
     const pairing = await queryPaired(dispatch);
-    if (session.phase().name !== "reading") return;
+    if (!isCurrentAttempt(started, attempt) || session.phase().name !== "reading") return;
     if (pairing.status === "unreachable") {
       session.commit({ type: "nativeUnreachable", page });
       return;
@@ -670,19 +771,22 @@
   async function performUpload() {
     const current = session.phase();
     if (current.name !== "sending") return;
+    const started = nextAttempt(attempt);
+    attempt = started;
     const page = current.page;
+    const idempotencyKey = current.idempotencyKey;
     console.info("[page-to-paper] popup send started");
     let event;
     try {
-      event = eventForUploadResult(await uploadDraft(page.draft, dispatch));
+      event = eventForUploadResult(await uploadDraft(page.draft, idempotencyKey, dispatch));
     } catch {
       event = eventForUploadResult({ ok: false, message: "The Page to Paper app did not answer." });
     }
-    if (session.phase().name !== "sending") return;
+    if (!isCurrentAttempt(started, attempt) || session.phase().name !== "sending") return;
     session.commit(event);
     const updated = session.phase();
     console.info(`[page-to-paper] popup UI update ${updated.name}`);
-    if (updated.name === "success") {
+    if (autoDismisses(updated)) {
       dismissTimer = setTimeout(() => {
         finish();
       }, successDismissMs);
@@ -704,13 +808,15 @@
       return;
     }
     if (action === "send") {
-      session.commit({ type: "send" });
+      session.commit({ type: "send", idempotencyKey: newIdempotencyKey() });
       if (session.phase().name !== "sending") return;
       void performUpload();
       return;
     }
     if (action === "retry-send") {
-      session.commit({ type: "retry" });
+      const phase = session.phase();
+      const carried = phase.name === "error" ? phase.idempotencyKey : void 0;
+      session.commit({ type: "retry", idempotencyKey: carried ?? newIdempotencyKey() });
       if (session.phase().name === "reading") {
         void loadPage();
         return;

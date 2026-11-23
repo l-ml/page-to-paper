@@ -1,5 +1,6 @@
 import { isRecord } from "./messaging";
 import { callNative } from "./nativeCall";
+import { nativeTimeoutMs } from "./popupState";
 
 // Manifest V3 service worker. Native messaging runs here so a stuck
 // sendNativeMessage cannot freeze the popup's timeout.
@@ -10,8 +11,10 @@ browser.runtime.onInstalled.addListener(() => {
 browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!isNativeRequest(message)) return;
   console.info("[page-to-paper] background received nativeRequest");
-  void callNative(message.payload, (application, body, callback) =>
-    browser.runtime.sendNativeMessage(application, body, callback),
+  void callNative(
+    message.payload,
+    (application, body, callback) => browser.runtime.sendNativeMessage(application, body, callback),
+    nativeTimeoutMs(message.payload),
   ).then(
     (value) => {
       // The reply is already in this worker. Delivering it does not need the native process.
