@@ -39,6 +39,13 @@ describe("articleFields", () => {
     const split = articleFields(`${"a".repeat(limits.title - 2)}${family}`, "https://news.example/ok");
     expect(split.title).toBe("a".repeat(limits.title - 2));
     expect(split.title).not.toContain("\u200d");
+
+    const withHtml = articleFields("Title", "https://news.example/ok", undefined, "  <p>Body</p>  ");
+    expect(withHtml.html).toBe("<p>Body</p>");
+    const emptyHtml = articleFields("Title", "https://news.example/ok", undefined, "   ");
+    expect("html" in emptyHtml).toBe(false);
+    const overLongHtml = articleFields("Title", "https://news.example/ok", undefined, "x".repeat(limits.html + 1));
+    expect("html" in overLongHtml).toBe(false);
   });
 });
 

@@ -28,14 +28,15 @@ struct ArticleConverter {
         let identifier = "urn:uuid:\(UUID().uuidString.lowercased())"
         let modified = Self.modifiedTimestamp()
         let escapedTitle = XMLText.escapePlain(title)
+        let escapedByline = byline.flatMap { $0.isEmpty ? nil : XMLText.escapePlain($0) }
         let files = [
             StoredZip.Entry(name: "mimetype", data: Data("application/epub+zip".utf8)),
             StoredZip.Entry(name: "META-INF/container.xml", data: Data(Self.containerXML.utf8)),
-            StoredZip.Entry(name: "OEBPS/content.opf", data: Data(Self.packageXML(title: escapedTitle, identifier: XMLText.escapePlain(identifier), modified: modified).utf8)),
+            StoredZip.Entry(name: "OEBPS/content.opf", data: Data(Self.packageXML(title: escapedTitle, byline: escapedByline, identifier: XMLText.escapePlain(identifier), modified: modified).utf8)),
             StoredZip.Entry(name: "OEBPS/nav.xhtml", data: Data(Self.navigationXML(title: escapedTitle).utf8)),
             StoredZip.Entry(
                 name: "OEBPS/chapter.xhtml",
-                data: Data(Self.chapterXML(title: escapedTitle, url: XMLText.escapePlain(url), byline: byline.map(XMLText.escapePlain), html: html).utf8)
+                data: Data(Self.chapterXML(title: escapedTitle, url: XMLText.escapePlain(url), byline: escapedByline, html: html).utf8)
             ),
         ]
         guard let archive = StoredZip.archive(files) else {
@@ -65,13 +66,14 @@ struct ArticleConverter {
     </container>
     """
 
-    private static func packageXML(title: String, identifier: String, modified: String) -> String {
-        """
+    private static func packageXML(title: String, byline: String?, identifier: String, modified: String) -> String {
+        let creator = byline.map { "\n    <dc:creator>\($0)</dc:creator>" } ?? ""
+        return """
         <?xml version="1.0" encoding="UTF-8"?>
         <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id" xml:lang="en">
           <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
             <dc:identifier id="pub-id">\(identifier)</dc:identifier>
-            <dc:title>\(title)</dc:title>
+            <dc:title>\(title)</dc:title>\(creator)
             <dc:language>en</dc:language>
             <meta property="dcterms:modified">\(modified)</meta>
           </metadata>
@@ -107,6 +109,7 @@ struct ArticleConverter {
         }
         body += "<p><a href=\"\(url)\">\(url)</a></p>"
         if let html, !html.isEmpty {
+            body += "<hr />"
             body += XHTMLFragment.render(html)
         }
         return """
@@ -380,7 +383,9 @@ private struct Sanitizer {
     private static let allowed: Set<String> = [
         "p", "div", "span", "h1", "h2", "h3", "h4", "h5", "h6",
         "ul", "ol", "li", "blockquote", "pre", "code", "em", "strong", "b", "i",
-        "a", "section", "article", "header", "footer", "figure", "figcaption",
+        "u", "s", "del", "ins", "mark", "abbr", "time",
+        "a", "section", "article", "header", "footer", "main", "aside",
+        "figure", "figcaption", "caption",
         "sup", "sub", "table", "thead", "tbody", "tfoot", "tr", "th", "td",
         "dl", "dt", "dd", "q", "cite", "small", "br", "hr",
     ]

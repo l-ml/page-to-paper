@@ -46,6 +46,7 @@ const unsupportedPageCodes: readonly MessageShapeCode[] = [
   "urlInvalid",
   "titleTooLong",
   "bylineTooLong",
+  "htmlTooLong",
 ];
 
 function isUnsupportedPage(code: MessageShapeCode | undefined): boolean {
