@@ -115,6 +115,10 @@ Permissions:
 - `scripting`: inject `content.js` into that tab. There is no `content_scripts` entry and no host permission.
 - `nativeMessaging`: the service worker calls the containing app.
 
+## Dependencies & third-party notices
+
+Extension scripts bundle [`@mozilla/readability`](https://github.com/mozilla/readability) (pinned to `0.6.0`, Apache License 2.0) into `PageToPaper/Extension/Resources/content.js` to extract article content locally on-device without maintaining custom DOM heuristics. No other third-party runtime dependencies are used on the JavaScript or Swift side.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

@@ -44,7 +44,7 @@ beforeEach(() => {
 });
 
 describe("extractReadableArticle", () => {
-  it("extracts article HTML, cleans media/attrs, resolves links, and leaves the live DOM untouched", () => {
+  it("extracts article HTML, cleans media/attrs, resolves links, unwraps fragments, and leaves the live DOM untouched", () => {
     mountDocument(sampleArticleHtml);
     const originalScripts = document.querySelectorAll("script").length;
     const originalImages = document.querySelectorAll("img").length;
@@ -57,7 +57,8 @@ describe("extractReadableArticle", () => {
     expect(extracted.html).toBeDefined();
     expect(extracted.html).toContain("First paragraph of a thoughtful essay");
     expect(extracted.html).toContain('<a href="https://news.example/notes/trail">trail notes</a>');
-    expect(extracted.html).toContain('<a href="#summary">the summary</a>');
+    expect(extracted.html).not.toContain('href="#summary"');
+    expect(extracted.html).toContain("the summary");
     expect(extracted.html).toContain('<img alt="Snowy trail through pine trees">');
     expect(extracted.html).not.toContain("data:image/png");
     expect(extracted.html).not.toContain("srcset");
@@ -120,14 +121,53 @@ describe("extractReadableArticle", () => {
 });
 
 describe("cleanAndBoundHtml", () => {
-  it("deduplicates a leading h1 that matches the article title", () => {
+  it("parses inside an inert document rather than creating elements in the live document", () => {
+    mountDocument("<!doctype html><html><body><p>Live</p></body></html>");
+    const createElementSpy = vi.spyOn(document, "createElement");
+    const createInertSpy = vi.spyOn(document.implementation, "createHTMLDocument");
+
     const cleaned = cleanAndBoundHtml(
+      '<div><!-- comment --><img src="https://tracker.example/p.png" alt="Chart"><p>Safe text.</p></div>',
+      document,
+      { maxLength: 10_000 },
+    );
+
+    expect(createElementSpy).not.toHaveBeenCalled();
+    expect(createInertSpy).toHaveBeenCalledTimes(1);
+    expect(cleaned).toContain('<img alt="Chart">');
+    expect(cleaned).not.toContain("tracker.example");
+    expect(cleaned).not.toContain("<!--");
+
+    createElementSpy.mockRestore();
+    createInertSpy.mockRestore();
+  });
+
+  it("deduplicates leading h1 or Readability-rewritten h2 matching the title, keeping non-matching h2", () => {
+    const dedupH1 = cleanAndBoundHtml(
       "<div><h1>  Winter   Walk </h1><p>Body text here.</p></div>",
       document,
       { title: "winter walk", maxLength: 10_000 },
     );
-    expect(cleaned).not.toContain("<h1>");
-    expect(cleaned).toContain("<p>Body text here.</p>");
+    expect(dedupH1).not.toContain("<h1>");
+    expect(dedupH1).toContain("<p>Body text here.</p>");
+
+    const dedupH2 = cleanAndBoundHtml(
+      "<div><h2>Winter Walk</h2><h2>Section One</h2><p>Body text here.</p></div>",
+      document,
+      { title: "Winter Walk", maxLength: 10_000 },
+    );
+    expect(dedupH2).not.toContain("Winter Walk");
+    expect(dedupH2).toContain("<h2>Section One</h2>");
+    expect(dedupH2).toContain("<p>Body text here.</p>");
+  });
+
+  it("unwraps dead fragment and javascript links while keeping their text", () => {
+    const cleaned = cleanAndBoundHtml(
+      '<p>Jump to <a href="#top"><em>top</em></a> or <a href="javascript:void(0)">skip</a> or <a href="/ok">read more</a>.</p>',
+      document,
+      { maxLength: 10_000, baseUrl: "https://news.example/article" },
+    );
+    expect(cleaned).toBe('<p>Jump to <em>top</em> or skip or <a href="https://news.example/ok">read more</a>.</p>');
   });
 
   it("bounds oversized multi-paragraph HTML cleanly within maxLength", () => {
@@ -137,6 +177,24 @@ describe("cleanAndBoundHtml", () => {
     expect(cleaned!.length).toBeLessThanOrEqual(500);
     expect(cleaned).toContain("Article truncated to fit the EPUB size limit.");
     expect(cleaned).toContain("Paragraph 0:");
+  });
+
+  it("truncates 10,000 paragraphs (>1.5 MB) in linear time well under the page-read budget", () => {
+    const paragraphs = Array.from(
+      { length: 10_000 },
+      (_, i) => `<p>Paragraph ${i}: ${"word ".repeat(26)}</p>`,
+    ).join("");
+    expect(paragraphs.length).toBeGreaterThan(1_500_000);
+
+    const started = performance.now();
+    const cleaned = cleanAndBoundHtml(`<div>${paragraphs}</div>`, document, { maxLength: limits.html });
+    const elapsedMs = performance.now() - started;
+
+    expect(cleaned).toBeDefined();
+    expect(cleaned!.length).toBeLessThanOrEqual(limits.html);
+    expect(cleaned).toContain("Article truncated to fit the EPUB size limit.");
+    expect(cleaned).toContain("Paragraph 0:");
+    expect(elapsedMs).toBeLessThan(2_000);
   });
 
   it("bounds a single giant paragraph cleanly within maxLength", () => {

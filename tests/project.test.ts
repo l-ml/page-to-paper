@@ -102,6 +102,8 @@ describe("checked-in project files", () => {
     expect(popupJs).toContain("pagetopaper://pair");
     expect(popupJs).not.toContain("NSExtensionContext");
     const contentJs = read("PageToPaper/Extension/Resources/content.js");
+    expect(contentJs).toContain("@mozilla/readability");
+    expect(contentJs).toContain("Apache License, Version 2.0");
     expect(contentJs).not.toContain("my.remarkable.com");
     expect(contentJs).not.toContain("webapp-prod");
   });

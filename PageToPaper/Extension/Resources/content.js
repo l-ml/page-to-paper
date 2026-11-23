@@ -1,4 +1,9 @@
 /* Generated from src/ by esbuild. Do not edit. */
+/*
+ * Bundles @mozilla/readability 0.6.0 (Apache License, Version 2.0):
+ * Copyright (c) 2010 Arc90 Inc
+ * Licensed under the Apache License, Version 2.0 (Apache License, Version 2.0)
+ */
 "use strict";
 (() => {
   var __create = Object.create;
@@ -2164,7 +2169,7 @@
       const title = parsed.title?.trim() || void 0;
       const byline = parsed.byline?.trim() || void 0;
       const rawHtml = parsed.content?.trim();
-      const html = rawHtml ? cleanAndBoundHtml(rawHtml, doc, {
+      const html = rawHtml ? cleanAndBoundHtml(rawHtml, clone, {
         title,
         maxLength: limits.html,
         baseUrl: pageUrl
@@ -2180,8 +2185,10 @@
   }
   function cleanAndBoundHtml(rawHtml, doc, options) {
     if (!rawHtml.trim() || options.maxLength <= 0) return void 0;
-    const container = doc.createElement("div");
+    const inert = doc.implementation.createHTMLDocument("");
+    const container = inert.createElement("div");
     container.innerHTML = rawHtml;
+    stripComments(container);
     for (const node of Array.from(container.querySelectorAll(dropElementsSelector))) {
       node.remove();
     }
@@ -2215,6 +2222,11 @@
         el.setAttribute("href", safeHref);
       }
     }
+    for (const anchor of Array.from(container.querySelectorAll("a"))) {
+      if (!anchor.hasAttribute("href")) {
+        unwrapElement(anchor);
+      }
+    }
     removeDuplicateTitleHeading(container, options.title);
     const fullText = normalizeWhitespace(container.textContent ?? "");
     if (!fullText) return void 0;
@@ -2223,6 +2235,26 @@
       return initial;
     }
     return boundContainerHtml(container, fullText, options.maxLength);
+  }
+  function stripComments(root) {
+    for (const child of Array.from(root.childNodes)) {
+      if (child.nodeType === 8) {
+        root.removeChild(child);
+      } else if (child.hasChildNodes()) {
+        stripComments(child);
+      }
+    }
+  }
+  function unwrapElement(el) {
+    const parent = el.parentNode;
+    if (!parent) {
+      el.remove();
+      return;
+    }
+    while (el.firstChild) {
+      parent.insertBefore(el.firstChild, el);
+    }
+    el.remove();
   }
   function ensureBaseHref(clone, pageUrl) {
     if (!/^https?:\/\//i.test(pageUrl) || clone.querySelector("base")) return;
@@ -2240,8 +2272,18 @@
     }
   }
   function normalizeLinkHref(rawHref, baseUrl) {
-    if (rawHref.startsWith("#")) return rawHref;
-    if (/^https?:\/\//i.test(rawHref)) return rawHref;
+    if (rawHref.startsWith("#")) return void 0;
+    if (/^https?:\/\//i.test(rawHref)) {
+      try {
+        const parsed = new URL(rawHref);
+        if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+          return rawHref;
+        }
+      } catch {
+        return void 0;
+      }
+      return void 0;
+    }
     if (/^[a-z][a-z0-9+.-]*:/i.test(rawHref)) return void 0;
     if (baseUrl && /^https?:\/\//i.test(baseUrl)) {
       try {
@@ -2280,25 +2322,106 @@
     const first = Array.from(host.childNodes).find(isMeaningfulNode);
     if (!first || first.nodeType !== 1) return;
     const element = first;
-    if (element.tagName.toLowerCase() !== "h1") return;
+    const tag = element.tagName.toLowerCase();
+    if (tag !== "h1" && tag !== "h2") return;
     const headingText = normalizeWhitespace(element.textContent ?? "").toLowerCase();
     if (headingText === normalizedTitle) {
       element.remove();
     }
   }
+  function serializedTextLength(text) {
+    let len = 0;
+    for (let i = 0; i < text.length; i += 1) {
+      const code = text.charCodeAt(i);
+      if (code === 38) len += 5;
+      else if (code === 60 || code === 62) len += 4;
+      else if (code === 160) len += 6;
+      else len += 1;
+    }
+    return len;
+  }
+  function serializedNodeLength(node) {
+    if (node.nodeType === 1) return node.outerHTML.length;
+    if (node.nodeType === 3) return serializedTextLength(node.textContent ?? "");
+    return 0;
+  }
+  function truncateElementToBudget(el, budget) {
+    if (budget <= 0) {
+      el.textContent = "";
+      return false;
+    }
+    const children = Array.from(el.childNodes);
+    let used = 0;
+    let cutIndex = -1;
+    for (let i = 0; i < children.length; i += 1) {
+      const len = serializedNodeLength(children[i]);
+      if (used + len > budget) {
+        cutIndex = i;
+        break;
+      }
+      used += len;
+    }
+    if (cutIndex === -1) {
+      return used > 0 && (el.textContent ?? "").trim().length > 0;
+    }
+    for (let i = children.length - 1; i > cutIndex; i -= 1) {
+      children[i].remove();
+    }
+    const cutChild = children[cutIndex];
+    if (cutChild.nodeType === 1) {
+      const childEl = cutChild;
+      const remaining = budget - used;
+      const overhead = childEl.cloneNode(false).outerHTML.length;
+      if (childEl.attributes.length === 0 && childEl.childNodes.length > 1 && remaining > overhead) {
+        const kept = truncateElementToBudget(childEl, remaining - overhead);
+        if (kept) return (el.textContent ?? "").trim().length > 0;
+      }
+    }
+    cutChild.remove();
+    return (el.textContent ?? "").trim().length > 0;
+  }
   function boundContainerHtml(container, fullText, maxLength) {
     const target = unwrapSingleContainer(container);
-    while (target.lastChild && container.innerHTML.trim().length + truncationNotice.length > maxLength) {
-      target.lastChild.remove();
+    let wrapperOverhead = 0;
+    let cursor = target;
+    while (cursor && cursor !== container) {
+      const parent = cursor.parentElement;
+      if (parent) {
+        for (const sibling of Array.from(parent.childNodes)) {
+          if (sibling !== cursor && sibling.nodeType === 3 && !(sibling.textContent ?? "").trim()) {
+            sibling.remove();
+          }
+        }
+      }
+      wrapperOverhead += cursor.cloneNode(false).outerHTML.length;
+      cursor = parent;
     }
-    if ((target.textContent ?? "").trim().length > 0) {
+    const budget = maxLength - truncationNotice.length - wrapperOverhead;
+    const kept = truncateElementToBudget(target, budget);
+    if (kept) {
       const noticeHost = container.ownerDocument.createElement("div");
       noticeHost.innerHTML = truncationNotice;
-      while (noticeHost.firstChild) {
-        target.appendChild(noticeHost.firstChild);
+      const noticeNodes = Array.from(noticeHost.childNodes);
+      for (const node of noticeNodes) {
+        target.appendChild(node);
       }
-      const candidate = container.innerHTML.trim();
+      let candidate = container.innerHTML.trim();
       if (candidate.length <= maxLength) {
+        return candidate;
+      }
+      let pops = 0;
+      while (candidate.length > maxLength && pops < 4) {
+        const firstNotice = noticeNodes[0];
+        const prev = firstNotice?.previousSibling;
+        if (!prev) break;
+        prev.remove();
+        pops += 1;
+        if ((target.textContent ?? "").trim().length === noticeHost.textContent?.trim().length) {
+          break;
+        }
+        candidate = container.innerHTML.trim();
+      }
+      if (candidate.length <= maxLength && pops < 4) {
         return candidate;
       }
     }

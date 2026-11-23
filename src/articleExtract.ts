@@ -28,7 +28,7 @@ export function extractReadableArticle(doc: Document, pageUrl: string): Extracte
     const byline = parsed.byline?.trim() || undefined;
     const rawHtml = parsed.content?.trim();
     const html = rawHtml
-      ? cleanAndBoundHtml(rawHtml, doc, {
+      ? cleanAndBoundHtml(rawHtml, clone, {
           title,
           maxLength: limits.html,
           baseUrl: pageUrl,
@@ -46,8 +46,9 @@ export function extractReadableArticle(doc: Document, pageUrl: string): Extracte
 }
 
 /**
- * Strips heavy/non-article nodes and unused attributes, preserves image alt text,
- * deduplicates a leading title H1, and bounds the serialized HTML to `maxLength`.
+ * Parses HTML in an inert document, strips heavy/non-article nodes, comments,
+ * unused attributes, and dead fragment links, preserves image alt text,
+ * deduplicates a leading title heading, and bounds output to `maxLength` in linear time.
  */
 export function cleanAndBoundHtml(
   rawHtml: string,
@@ -56,8 +57,11 @@ export function cleanAndBoundHtml(
 ): string | undefined {
   if (!rawHtml.trim() || options.maxLength <= 0) return undefined;
 
-  const container = doc.createElement("div");
+  const inert = doc.implementation.createHTMLDocument("");
+  const container = inert.createElement("div");
   container.innerHTML = rawHtml;
+
+  stripComments(container);
 
   for (const node of Array.from(container.querySelectorAll(dropElementsSelector))) {
     node.remove();
@@ -95,6 +99,12 @@ export function cleanAndBoundHtml(
     }
   }
 
+  for (const anchor of Array.from(container.querySelectorAll("a"))) {
+    if (!anchor.hasAttribute("href")) {
+      unwrapElement(anchor);
+    }
+  }
+
   removeDuplicateTitleHeading(container, options.title);
 
   const fullText = normalizeWhitespace(container.textContent ?? "");
@@ -106,6 +116,28 @@ export function cleanAndBoundHtml(
   }
 
   return boundContainerHtml(container, fullText, options.maxLength);
+}
+
+function stripComments(root: Node): void {
+  for (const child of Array.from(root.childNodes)) {
+    if (child.nodeType === 8) {
+      root.removeChild(child);
+    } else if (child.hasChildNodes()) {
+      stripComments(child);
+    }
+  }
+}
+
+function unwrapElement(el: Element): void {
+  const parent = el.parentNode;
+  if (!parent) {
+    el.remove();
+    return;
+  }
+  while (el.firstChild) {
+    parent.insertBefore(el.firstChild, el);
+  }
+  el.remove();
 }
 
 function ensureBaseHref(clone: Document, pageUrl: string): void {
@@ -125,8 +157,18 @@ function ensureBaseHref(clone: Document, pageUrl: string): void {
 }
 
 function normalizeLinkHref(rawHref: string, baseUrl?: string): string | undefined {
-  if (rawHref.startsWith("#")) return rawHref;
-  if (/^https?:\/\//i.test(rawHref)) return rawHref;
+  if (rawHref.startsWith("#")) return undefined;
+  if (/^https?:\/\//i.test(rawHref)) {
+    try {
+      const parsed = new URL(rawHref);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        return rawHref;
+      }
+    } catch {
+      return undefined;
+    }
+    return undefined;
+  }
   if (/^[a-z][a-z0-9+.-]*:/i.test(rawHref)) return undefined;
   if (baseUrl && /^https?:\/\//i.test(baseUrl)) {
     try {
@@ -168,27 +210,116 @@ function removeDuplicateTitleHeading(container: Element, title?: string): void {
   const first = Array.from(host.childNodes).find(isMeaningfulNode);
   if (!first || first.nodeType !== 1) return;
   const element = first as Element;
-  if (element.tagName.toLowerCase() !== "h1") return;
+  const tag = element.tagName.toLowerCase();
+  if (tag !== "h1" && tag !== "h2") return;
   const headingText = normalizeWhitespace(element.textContent ?? "").toLowerCase();
   if (headingText === normalizedTitle) {
     element.remove();
   }
 }
 
+function serializedTextLength(text: string): number {
+  let len = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const code = text.charCodeAt(i);
+    if (code === 38) len += 5; // &amp;
+    else if (code === 60 || code === 62) len += 4; // &lt; / &gt;
+    else if (code === 0x00a0) len += 6; // &nbsp;
+    else len += 1;
+  }
+  return len;
+}
+
+function serializedNodeLength(node: ChildNode): number {
+  if (node.nodeType === 1) return (node as Element).outerHTML.length;
+  if (node.nodeType === 3) return serializedTextLength(node.textContent ?? "");
+  return 0;
+}
+
+function truncateElementToBudget(el: Element, budget: number): boolean {
+  if (budget <= 0) {
+    el.textContent = "";
+    return false;
+  }
+  const children = Array.from(el.childNodes);
+  let used = 0;
+  let cutIndex = -1;
+  for (let i = 0; i < children.length; i += 1) {
+    const len = serializedNodeLength(children[i]);
+    if (used + len > budget) {
+      cutIndex = i;
+      break;
+    }
+    used += len;
+  }
+  if (cutIndex === -1) {
+    return used > 0 && (el.textContent ?? "").trim().length > 0;
+  }
+  for (let i = children.length - 1; i > cutIndex; i -= 1) {
+    children[i].remove();
+  }
+  const cutChild = children[cutIndex];
+  if (cutChild.nodeType === 1) {
+    const childEl = cutChild as Element;
+    const remaining = budget - used;
+    const overhead = (childEl.cloneNode(false) as Element).outerHTML.length;
+    if (childEl.attributes.length === 0 && childEl.childNodes.length > 1 && remaining > overhead) {
+      const kept = truncateElementToBudget(childEl, remaining - overhead);
+      if (kept) return (el.textContent ?? "").trim().length > 0;
+    }
+  }
+  cutChild.remove();
+  return (el.textContent ?? "").trim().length > 0;
+}
+
 function boundContainerHtml(container: Element, fullText: string, maxLength: number): string | undefined {
   const target = unwrapSingleContainer(container);
-  while (target.lastChild && container.innerHTML.trim().length + truncationNotice.length > maxLength) {
-    target.lastChild.remove();
+
+  let wrapperOverhead = 0;
+  let cursor: Element | null = target;
+  while (cursor && cursor !== container) {
+    const parent: Element | null = cursor.parentElement;
+    if (parent) {
+      for (const sibling of Array.from(parent.childNodes)) {
+        if (sibling !== cursor && sibling.nodeType === 3 && !(sibling.textContent ?? "").trim()) {
+          sibling.remove();
+        }
+      }
+    }
+    wrapperOverhead += (cursor.cloneNode(false) as Element).outerHTML.length;
+    cursor = parent;
   }
 
-  if ((target.textContent ?? "").trim().length > 0) {
+  const budget = maxLength - truncationNotice.length - wrapperOverhead;
+  const kept = truncateElementToBudget(target, budget);
+
+  if (kept) {
     const noticeHost = container.ownerDocument.createElement("div");
     noticeHost.innerHTML = truncationNotice;
-    while (noticeHost.firstChild) {
-      target.appendChild(noticeHost.firstChild);
+    const noticeNodes = Array.from(noticeHost.childNodes);
+    for (const node of noticeNodes) {
+      target.appendChild(node);
     }
-    const candidate = container.innerHTML.trim();
+
+    let candidate = container.innerHTML.trim();
     if (candidate.length <= maxLength) {
+      return candidate;
+    }
+
+    // Bounded safety trim in case whitespace serialization pushed candidate slightly over budget
+    let pops = 0;
+    while (candidate.length > maxLength && pops < 4) {
+      const firstNotice = noticeNodes[0];
+      const prev = firstNotice?.previousSibling;
+      if (!prev) break;
+      prev.remove();
+      pops += 1;
+      if ((target.textContent ?? "").trim().length === noticeHost.textContent?.trim().length) {
+        break;
+      }
+      candidate = container.innerHTML.trim();
+    }
+    if (candidate.length <= maxLength && pops < 4) {
       return candidate;
     }
   }
