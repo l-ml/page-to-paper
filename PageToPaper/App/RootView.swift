@@ -1,8 +1,14 @@
 import SwiftUI
 
+enum HomeDestination: Hashable {
+    case pairing
+    case settings
+}
+
 struct RootView: View {
     @State private var hasCompletedOnboarding = AppPreferences.hasCompletedOnboarding
-    @State private var showPairing = false
+    @State private var destination: HomeDestination?
+    @State private var pendingPairingAfterDismiss = false
     @State private var pairingReason: PairingReason?
     @State private var openPairingAfterOnboarding = false
 
@@ -25,8 +31,11 @@ struct RootView: View {
         NavigationView {
             Group {
                 if hasCompletedOnboarding {
-                    HomeView(showPairing: $showPairing, pairingReason: $pairingReason) {
-                        showPairing = false
+                    HomeView(destination: $destination, pairingReason: $pairingReason) {
+                        pendingPairingAfterDismiss = false
+                        destination = nil
+                        pairingReason = nil
+                        openPairingAfterOnboarding = false
                         hasCompletedOnboarding = false
                     }
                 } else {
@@ -34,7 +43,8 @@ struct RootView: View {
                         AppPreferences.hasCompletedOnboarding = true
                         hasCompletedOnboarding = true
                         if openPairingAfterOnboarding || !RemarkableAuth().isPaired() {
-                            showPairing = true
+                            openPairingAfterOnboarding = false
+                            destination = .pairing
                         }
                     }
                 }
@@ -43,13 +53,31 @@ struct RootView: View {
         .navigationViewStyle(StackNavigationViewStyle())
         .accentColor(.blue)
         .onOpenURL(perform: open)
+        .onChange(of: destination) { current in
+            if current == nil && pendingPairingAfterDismiss {
+                pendingPairingAfterDismiss = false
+                if hasCompletedOnboarding {
+                    DispatchQueue.main.async {
+                        if hasCompletedOnboarding && destination == nil {
+                            destination = .pairing
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private func open(_ url: URL) {
         guard let link = PairingLink.parse(url) else { return }
         pairingReason = link.reason
         if hasCompletedOnboarding {
-            showPairing = true
+            if destination == .settings {
+                pendingPairingAfterDismiss = true
+                destination = nil
+            } else {
+                pendingPairingAfterDismiss = false
+                destination = .pairing
+            }
         } else {
             openPairingAfterOnboarding = true
         }
@@ -57,19 +85,22 @@ struct RootView: View {
 }
 
 struct HomeView: View {
-    @Binding var showPairing: Bool
+    @Binding var destination: HomeDestination?
     @Binding var pairingReason: PairingReason?
     var onResetOnboarding: () -> Void = {}
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var didOfferPairing = false
-    @State private var showSettings = false
     @State private var paired = false
 
     var body: some View {
         List {
             Section {
-                NavigationLink(destination: PairingView(reason: $pairingReason), isActive: $showPairing) {
+                NavigationLink(
+                    destination: PairingView(reason: $pairingReason, onPairingChanged: refreshPairing),
+                    tag: HomeDestination.pairing,
+                    selection: $destination
+                ) {
                     HStack {
                         Text("Pairing")
                         Spacer()
@@ -79,7 +110,8 @@ struct HomeView: View {
                 }
                 NavigationLink(
                     destination: SettingsView(onResetOnboarding: onResetOnboarding, onPairingChanged: refreshPairing),
-                    isActive: $showSettings
+                    tag: HomeDestination.settings,
+                    selection: $destination
                 ) {
                     Text("Settings")
                 }
@@ -96,8 +128,8 @@ struct HomeView: View {
             refreshPairing()
             guard !didOfferPairing else { return }
             didOfferPairing = true
-            if !paired {
-                showPairing = true
+            if !paired && destination == nil {
+                destination = .pairing
             }
         }
         .onChange(of: scenePhase) { phase in
@@ -105,13 +137,8 @@ struct HomeView: View {
                 refreshPairing()
             }
         }
-        .onChange(of: showPairing) { active in
-            if !active {
-                refreshPairing()
-            }
-        }
-        .onChange(of: showSettings) { active in
-            if !active {
+        .onChange(of: destination) { current in
+            if current == nil {
                 refreshPairing()
             }
         }

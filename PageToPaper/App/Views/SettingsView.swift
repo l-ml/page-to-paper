@@ -7,7 +7,6 @@ struct SettingsView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var paired = false
     @State private var pairingReason: PairingReason?
-    @State private var showPairing = false
     @State private var confirmSignOut = false
     #if DEBUG
     @State private var mockFault = MockUploadFault.current()
@@ -26,7 +25,12 @@ struct SettingsView: View {
                 .padding(.vertical, 2)
             }
             Section(header: Text("reMarkable")) {
-                NavigationLink(destination: PairingView(reason: $pairingReason), isActive: $showPairing) {
+                NavigationLink(
+                    destination: PairingView(reason: $pairingReason) {
+                        refresh()
+                        onPairingChanged?()
+                    }
+                ) {
                     HStack {
                         Text("Connection")
                         Spacer()
@@ -83,12 +87,6 @@ struct SettingsView: View {
         .onChange(of: scenePhase) { phase in
             if phase == .active {
                 refresh()
-            }
-        }
-        .onChange(of: showPairing) { active in
-            if !active {
-                refresh()
-                onPairingChanged?()
             }
         }
         .confirmationDialog("Sign out of reMarkable on this device?", isPresented: $confirmSignOut, titleVisibility: .visible) {

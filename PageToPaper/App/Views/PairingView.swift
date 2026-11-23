@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PairingView: View {
     @Binding var reason: PairingReason?
+    var onPairingChanged: (() -> Void)? = nil
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var paired = false
@@ -95,6 +96,7 @@ struct PairingView: View {
             }
         }
         .onChange(of: reason) { _ in
+            refresh()
             syncReason()
         }
         .onChange(of: code) { _ in
@@ -168,9 +170,11 @@ struct PairingView: View {
     }
 
     private func refresh() {
-        if replacing { return }
-        paired = RemarkableAuth().isPaired()
-        if paired {
+        let currentlyPaired = RemarkableAuth().isPaired()
+        paired = currentlyPaired
+        if !currentlyPaired {
+            replacing = false
+        } else if !replacing {
             showsError = false
         }
     }
@@ -182,6 +186,7 @@ struct PairingView: View {
             reason = nil
             replacing = false
             refresh()
+            onPairingChanged?()
         } else {
             showsError = true
         }
@@ -192,7 +197,9 @@ struct PairingView: View {
         code = ""
         showsError = false
         reason = nil
+        replacing = false
         refresh()
+        onPairingChanged?()
     }
 
     private func repair() {
