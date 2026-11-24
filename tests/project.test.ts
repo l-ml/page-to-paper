@@ -57,6 +57,7 @@ describe("extension sources", () => {
       "Test mode: nothing was uploaded to your reMarkable.",
     );
     expect(read("PageToPaper/Shared/RemarkableCloudClient.swift")).toContain("transportTimeout: TimeInterval = 20");
+    expect(read("PageToPaper/Shared/RemarkableCloudClient.swift")).toContain('"rateLimit"');
     expect(read("PageToPaper/Shared/RemarkableCloudClient.swift")).not.toContain("URLSession");
     expect(read("PageToPaper/Shared/ArticleConverter.swift")).not.toContain("URLSession");
     const handler = read("PageToPaper/Extension/SafariWebExtensionHandler.swift");
@@ -99,6 +100,18 @@ describe("checked-in project files", () => {
     expect(popupJs).toContain("uploadArticle");
     expect(popupJs).toContain("pagetopaper://pair");
     expect(popupJs).not.toContain("NSExtensionContext");
+  });
+
+  it("includes contributor and issue templates", () => {
+    for (const relative of [
+      "CONTRIBUTING.md",
+      ".github/ISSUE_TEMPLATE/config.yml",
+      ".github/ISSUE_TEMPLATE/bug_report.yml",
+      ".github/ISSUE_TEMPLATE/feature_request.yml",
+      ".github/PULL_REQUEST_TEMPLATE.md",
+    ]) {
+      expect(fs.existsSync(relative), `missing ${relative}`).toBe(true);
+    }
   });
 
   it("builds the same extension scripts that are committed", () => {

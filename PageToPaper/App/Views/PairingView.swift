@@ -2,6 +2,8 @@ import SwiftUI
 
 struct PairingView: View {
     @Binding var reason: PairingReason?
+    var refreshToken: Int = 0
+    var onPairingChanged: (() -> Void)? = nil
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var paired = false
@@ -14,6 +16,7 @@ struct PairingView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 status
+                reasonCallout
                 if paired && !replacing {
                     Text("This device can send EPUBs to your reMarkable Inbox.")
                         .font(.body)
@@ -33,7 +36,16 @@ struct PairingView: View {
                 } else {
                     Text("Enter the one-time code from your reMarkable account to connect Cloud upload.")
                         .font(.body)
-                    Text("Get an 8-character code at my.remarkable.com/device/browser/connect. It is single use and expires in about 5 minutes.")
+                    if let connectURL = URL(string: "https://my.remarkable.com/device/browser/connect") {
+                        Link(destination: connectURL) {
+                            Label("Get code at my.remarkable.com", systemImage: "arrow.up.right.square")
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .padding(.horizontal, 12)
+                                .background(Color.accentColor.opacity(0.12))
+                                .cornerRadius(10)
+                        }
+                    }
+                    Text("It is an 8-character single-use code that expires in about 5 minutes.")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                     TextField("Enter pairing code", text: $code)
@@ -54,12 +66,13 @@ struct PairingView: View {
                             replacing = false
                             code = ""
                             showsError = false
+                            reason = nil
                             refresh()
                         }
                         .frame(minHeight: 44)
                     }
                     if showsError {
-                        Text("Couldn’t pair. Check the code and try again.")
+                        Text("Couldn’t pair. Check the code and try again. Codes are single use and expire in a few minutes.")
                             .font(.footnote)
                             .foregroundColor(.red)
                             .fixedSize(horizontal: false, vertical: true)
@@ -75,15 +88,21 @@ struct PairingView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             refresh()
-            noteReason()
+            syncReason()
         }
         .onChange(of: scenePhase) { phase in
             if phase == .active {
                 refresh()
+                syncReason()
             }
         }
         .onChange(of: reason) { _ in
-            noteReason()
+            refresh()
+            syncReason()
+        }
+        .onChange(of: refreshToken) { _ in
+            refresh()
+            syncReason()
         }
         .onChange(of: code) { _ in
             if showsError {
@@ -105,17 +124,63 @@ struct PairingView: View {
             .accessibilityLabel(title)
     }
 
-    private func refresh() {
-        if replacing { return }
-        paired = RemarkableAuth().isPaired()
-        if paired {
-            showsError = false
+    @ViewBuilder
+    private var reasonCallout: some View {
+        if let message = reasonBanner {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: reason == .unreachable ? "info.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundColor(reason == .unreachable ? .accentColor : .orange)
+                    .accessibilityHidden(true)
+                Text(message)
+                    .font(.footnote)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Color.secondary.opacity(0.12))
+            .cornerRadius(10)
         }
     }
 
-    private func noteReason() {
-        if reason == .expired && !paired {
-            showsError = true
+    private var reasonBanner: String? {
+        switch reason {
+        case .expired:
+            return (!paired || replacing)
+                ? "Your reMarkable session expired. Enter a fresh one-time code to reconnect."
+                : nil
+        case .required:
+            return (!paired || replacing)
+                ? "Pair your reMarkable before sending pages from Safari."
+                : nil
+        case .unreachable:
+            return "Page to Paper is open. Return to Safari and tap Retry."
+        case .none:
+            return nil
+        }
+    }
+
+    private func syncReason() {
+        switch reason {
+        case .expired:
+            if paired && !replacing {
+                replacing = true
+            }
+        case .required:
+            if paired && !replacing {
+                reason = nil
+            }
+        case .unreachable, .none:
+            break
+        }
+    }
+
+    private func refresh() {
+        let currentlyPaired = RemarkableAuth().isPaired()
+        paired = currentlyPaired
+        if !currentlyPaired {
+            replacing = false
+        } else if !replacing {
+            showsError = false
         }
     }
 
@@ -126,6 +191,7 @@ struct PairingView: View {
             reason = nil
             replacing = false
             refresh()
+            onPairingChanged?()
         } else {
             showsError = true
         }
@@ -136,13 +202,17 @@ struct PairingView: View {
         code = ""
         showsError = false
         reason = nil
+        replacing = false
         refresh()
+        onPairingChanged?()
     }
 
     private func repair() {
         code = ""
         showsError = false
-        reason = nil
+        if reason == .unreachable {
+            reason = nil
+        }
         replacing = true
     }
 }

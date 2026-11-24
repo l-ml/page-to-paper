@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Architecture & Unresolved Cloud API Spikes
+    url: https://github.com/l-ml/page-to-paper/blob/main/SPIKES.md
+    about: Check open reMarkable Cloud API spikes before proposing networking or ATS changes.
+  - name: Contributing Guide & Local Checks
+    url: https://github.com/l-ml/page-to-paper/blob/main/CONTRIBUTING.md
+    about: Setup instructions, build commands, and security boundaries.
