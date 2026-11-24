@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PairingView: View {
     @Binding var reason: PairingReason?
+    var refreshToken: Int = 0
     var onPairingChanged: (() -> Void)? = nil
 
     @Environment(\.scenePhase) private var scenePhase
@@ -96,6 +97,10 @@ struct PairingView: View {
             }
         }
         .onChange(of: reason) { _ in
+            refresh()
+            syncReason()
+        }
+        .onChange(of: refreshToken) { _ in
             refresh()
             syncReason()
         }

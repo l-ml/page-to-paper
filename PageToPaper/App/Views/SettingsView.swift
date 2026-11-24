@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    var pairingRefreshToken: Int = 0
     var onResetOnboarding: (() -> Void)? = nil
     var onPairingChanged: (() -> Void)? = nil
 
@@ -26,7 +27,7 @@ struct SettingsView: View {
             }
             Section(header: Text("reMarkable")) {
                 NavigationLink(
-                    destination: PairingView(reason: $pairingReason) {
+                    destination: PairingView(reason: $pairingReason, refreshToken: pairingRefreshToken) {
                         refresh()
                         onPairingChanged?()
                     }
@@ -88,6 +89,9 @@ struct SettingsView: View {
             if phase == .active {
                 refresh()
             }
+        }
+        .onChange(of: pairingRefreshToken) { _ in
+            refresh()
         }
         .confirmationDialog("Sign out of reMarkable on this device?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Sign out", role: .destructive, action: signOut)

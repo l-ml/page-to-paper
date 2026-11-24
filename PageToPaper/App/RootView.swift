@@ -1,16 +1,12 @@
 import SwiftUI
 
-enum HomeDestination: Hashable {
-    case pairing
-    case settings
-}
-
 struct RootView: View {
     @State private var hasCompletedOnboarding = AppPreferences.hasCompletedOnboarding
-    @State private var destination: HomeDestination?
-    @State private var pendingPairingAfterDismiss = false
+    @State private var showPairing = false
+    @State private var showPairingSheet = false
     @State private var pairingReason: PairingReason?
     @State private var openPairingAfterOnboarding = false
+    @State private var pairingRefreshToken = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,9 +27,14 @@ struct RootView: View {
         NavigationView {
             Group {
                 if hasCompletedOnboarding {
-                    HomeView(destination: $destination, pairingReason: $pairingReason) {
-                        pendingPairingAfterDismiss = false
-                        destination = nil
+                    HomeView(
+                        showPairing: $showPairing,
+                        pairingReason: $pairingReason,
+                        isPairingSheetPresented: showPairingSheet,
+                        pairingRefreshToken: pairingRefreshToken
+                    ) {
+                        showPairing = false
+                        showPairingSheet = false
                         pairingReason = nil
                         openPairingAfterOnboarding = false
                         hasCompletedOnboarding = false
@@ -44,7 +45,7 @@ struct RootView: View {
                         hasCompletedOnboarding = true
                         if openPairingAfterOnboarding || !RemarkableAuth().isPaired() {
                             openPairingAfterOnboarding = false
-                            destination = .pairing
+                            showPairing = true
                         }
                     }
                 }
@@ -53,30 +54,34 @@ struct RootView: View {
         .navigationViewStyle(StackNavigationViewStyle())
         .accentColor(.blue)
         .onOpenURL(perform: open)
-        .onChange(of: destination) { current in
-            if current == nil && pendingPairingAfterDismiss {
-                pendingPairingAfterDismiss = false
-                if hasCompletedOnboarding {
-                    DispatchQueue.main.async {
-                        if hasCompletedOnboarding && destination == nil {
-                            destination = .pairing
+        .sheet(isPresented: $showPairingSheet, onDismiss: {
+            pairingReason = nil
+            pairingRefreshToken += 1
+        }) {
+            NavigationView {
+                PairingView(reason: $pairingReason, refreshToken: pairingRefreshToken) {
+                    pairingRefreshToken += 1
+                }
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            showPairingSheet = false
                         }
                     }
                 }
             }
+            .navigationViewStyle(StackNavigationViewStyle())
+            .accentColor(.blue)
         }
     }
 
     private func open(_ url: URL) {
         guard let link = PairingLink.parse(url) else { return }
         pairingReason = link.reason
+        pairingRefreshToken += 1
         if hasCompletedOnboarding {
-            if destination == .settings {
-                pendingPairingAfterDismiss = true
-                destination = nil
-            } else {
-                pendingPairingAfterDismiss = false
-                destination = .pairing
+            if !showPairing {
+                showPairingSheet = true
             }
         } else {
             openPairingAfterOnboarding = true
@@ -85,8 +90,10 @@ struct RootView: View {
 }
 
 struct HomeView: View {
-    @Binding var destination: HomeDestination?
+    @Binding var showPairing: Bool
     @Binding var pairingReason: PairingReason?
+    var isPairingSheetPresented: Bool = false
+    var pairingRefreshToken: Int = 0
     var onResetOnboarding: () -> Void = {}
 
     @Environment(\.scenePhase) private var scenePhase
@@ -97,9 +104,12 @@ struct HomeView: View {
         List {
             Section {
                 NavigationLink(
-                    destination: PairingView(reason: $pairingReason, onPairingChanged: refreshPairing),
-                    tag: HomeDestination.pairing,
-                    selection: $destination
+                    destination: PairingView(
+                        reason: $pairingReason,
+                        refreshToken: pairingRefreshToken,
+                        onPairingChanged: refreshPairing
+                    ),
+                    isActive: $showPairing
                 ) {
                     HStack {
                         Text("Pairing")
@@ -109,9 +119,11 @@ struct HomeView: View {
                     }
                 }
                 NavigationLink(
-                    destination: SettingsView(onResetOnboarding: onResetOnboarding, onPairingChanged: refreshPairing),
-                    tag: HomeDestination.settings,
-                    selection: $destination
+                    destination: SettingsView(
+                        pairingRefreshToken: pairingRefreshToken,
+                        onResetOnboarding: onResetOnboarding,
+                        onPairingChanged: refreshPairing
+                    )
                 ) {
                     Text("Settings")
                 }
@@ -128,8 +140,8 @@ struct HomeView: View {
             refreshPairing()
             guard !didOfferPairing else { return }
             didOfferPairing = true
-            if !paired && destination == nil {
-                destination = .pairing
+            if !paired && !showPairing && !isPairingSheetPresented {
+                showPairing = true
             }
         }
         .onChange(of: scenePhase) { phase in
@@ -137,10 +149,16 @@ struct HomeView: View {
                 refreshPairing()
             }
         }
-        .onChange(of: destination) { current in
-            if current == nil {
+        .onChange(of: showPairing) { active in
+            if !active {
+                if !isPairingSheetPresented {
+                    pairingReason = nil
+                }
                 refreshPairing()
             }
+        }
+        .onChange(of: pairingRefreshToken) { _ in
+            refreshPairing()
         }
     }
 
