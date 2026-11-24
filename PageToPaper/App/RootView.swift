@@ -2,7 +2,6 @@ import SwiftUI
 
 struct RootView: View {
     @State private var hasCompletedOnboarding = AppPreferences.hasCompletedOnboarding
-    @State private var showPairing = false
     @State private var showPairingSheet = false
     @State private var pairingReason: PairingReason?
     @State private var openPairingAfterOnboarding = false
@@ -28,24 +27,26 @@ struct RootView: View {
             Group {
                 if hasCompletedOnboarding {
                     HomeView(
-                        showPairing: $showPairing,
-                        pairingReason: $pairingReason,
-                        isPairingSheetPresented: showPairingSheet,
-                        pairingRefreshToken: pairingRefreshToken
-                    ) {
-                        showPairing = false
-                        showPairingSheet = false
-                        pairingReason = nil
-                        openPairingAfterOnboarding = false
-                        hasCompletedOnboarding = false
-                    }
+                        pairingRefreshToken: pairingRefreshToken,
+                        onOfferPairing: {
+                            if !showPairingSheet {
+                                showPairingSheet = true
+                            }
+                        },
+                        onResetOnboarding: {
+                            showPairingSheet = false
+                            pairingReason = nil
+                            openPairingAfterOnboarding = false
+                            hasCompletedOnboarding = false
+                        }
+                    )
                 } else {
                     OnboardingView {
                         AppPreferences.hasCompletedOnboarding = true
                         hasCompletedOnboarding = true
                         if openPairingAfterOnboarding || !RemarkableAuth().isPaired() {
                             openPairingAfterOnboarding = false
-                            showPairing = true
+                            showPairingSheet = true
                         }
                     }
                 }
@@ -80,9 +81,7 @@ struct RootView: View {
         pairingReason = link.reason
         pairingRefreshToken += 1
         if hasCompletedOnboarding {
-            if !showPairing {
-                showPairingSheet = true
-            }
+            showPairingSheet = true
         } else {
             openPairingAfterOnboarding = true
         }
@@ -90,26 +89,24 @@ struct RootView: View {
 }
 
 struct HomeView: View {
-    @Binding var showPairing: Bool
-    @Binding var pairingReason: PairingReason?
-    var isPairingSheetPresented: Bool = false
     var pairingRefreshToken: Int = 0
+    var onOfferPairing: () -> Void = {}
     var onResetOnboarding: () -> Void = {}
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var didOfferPairing = false
     @State private var paired = false
+    @State private var manualPairingReason: PairingReason?
 
     var body: some View {
         List {
             Section {
                 NavigationLink(
                     destination: PairingView(
-                        reason: $pairingReason,
+                        reason: $manualPairingReason,
                         refreshToken: pairingRefreshToken,
                         onPairingChanged: refreshPairing
-                    ),
-                    isActive: $showPairing
+                    )
                 ) {
                     HStack {
                         Text("Pairing")
@@ -140,20 +137,12 @@ struct HomeView: View {
             refreshPairing()
             guard !didOfferPairing else { return }
             didOfferPairing = true
-            if !paired && !showPairing && !isPairingSheetPresented {
-                showPairing = true
+            if !paired {
+                onOfferPairing()
             }
         }
         .onChange(of: scenePhase) { phase in
             if phase == .active {
-                refreshPairing()
-            }
-        }
-        .onChange(of: showPairing) { active in
-            if !active {
-                if !isPairingSheetPresented {
-                    pairingReason = nil
-                }
                 refreshPairing()
             }
         }
